@@ -100,6 +100,7 @@ class AlphabetGame:
     def __init__(self, config: Config):
         self.config = config
         self.available_letters: set[str] = set()
+        self.letter_queue: list[str] = []  # Shuffled queue of letters for fair rotation
         self.current_letter: str = ""
         self.correct_index: int = -1
         self.image_buttons: list[ImageButton] = []
@@ -254,10 +255,18 @@ class AlphabetGame:
             button.set_enabled(True)
             self.image_buttons.append(button)
 
+    def _get_next_letter(self) -> str:
+        """Get the next letter, reshuffling when all letters have been used."""
+        if not self.letter_queue:
+            # Reshuffle all available letters
+            self.letter_queue = list(self.available_letters)
+            random.shuffle(self.letter_queue)
+        return self.letter_queue.pop()
+
     def start_new_round(self) -> None:
-        """Start a new round with a random letter."""
-        # Pick a random letter
-        self.current_letter = random.choice(list(self.available_letters))
+        """Start a new round with the next letter from the queue."""
+        # Get next letter from shuffled queue
+        self.current_letter = self._get_next_letter()
 
         # Update letter display
         self.letter_label.configure(text=self.current_letter)
