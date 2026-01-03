@@ -212,6 +212,10 @@ class AlphabetGame:
             text="Quit",
             font=("Arial", 16),
             command=self.quit_game,
+            bg="#FF9800",
+            fg="white",
+            activebackground="#F57C00",
+            activeforeground="white",
         )
         self.quit_button.pack(side=tk.LEFT, padx=20)
 
@@ -507,6 +511,10 @@ class AlphabetGame:
             text="Play Again",
             font=("Arial", 14),
             command=self._restart_game,
+            bg="#2196F3",
+            fg="white",
+            activebackground="#1976D2",
+            activeforeground="white",
         ).pack(side=tk.LEFT, padx=10)
 
         tk.Button(
@@ -514,6 +522,10 @@ class AlphabetGame:
             text="Quit",
             font=("Arial", 14),
             command=self.root.quit,
+            bg="#FF9800",
+            fg="white",
+            activebackground="#F57C00",
+            activeforeground="white",
         ).pack(side=tk.LEFT, padx=10)
 
     def _restart_game(self) -> None:
