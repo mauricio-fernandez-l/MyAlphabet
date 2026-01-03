@@ -120,6 +120,7 @@ class AlphabetGame:
         self.rounds_played: int = 0
         self.round_results: list[RoundResult] = []  # Track all round results
         self.progress_boxes: list[tk.Canvas] = []  # Progress indicator boxes
+        self._return_to_menu: bool = False  # Flag to return to main menu
 
         # Initialize main window
         self.root = tk.Tk()
@@ -519,6 +520,17 @@ class AlphabetGame:
 
         tk.Button(
             button_frame,
+            text="Main Menu",
+            font=("Arial", 14),
+            command=self._go_to_menu,
+            bg=self.config.menu_color,
+            fg="white",
+            activebackground=self.config.menu_hover,
+            activeforeground="white",
+        ).pack(side=tk.LEFT, padx=10)
+
+        tk.Button(
+            button_frame,
             text="Quit",
             font=("Arial", 14),
             command=self.root.quit,
@@ -527,6 +539,11 @@ class AlphabetGame:
             activebackground=self.config.quit_hover,
             activeforeground="white",
         ).pack(side=tk.LEFT, padx=10)
+
+    def _go_to_menu(self) -> None:
+        """Close game and signal to return to menu."""
+        self._return_to_menu = True
+        self.root.quit()
 
     def _restart_game(self) -> None:
         """Restart the game for a new session."""
@@ -564,6 +581,7 @@ class AlphabetGame:
     def run(self) -> None:
         """Run the game main loop."""
         self.root.mainloop()
+        self.root.destroy()
 
 
 class MenuWindow:
@@ -577,128 +595,185 @@ class MenuWindow:
         self.root = tk.Tk()
         self.root.title("My Alphabet - Settings")
         self.root.configure(bg=config.background_color)
-        self.root.geometry("500x400")
 
-        # Center window
-        self.root.update_idletasks()
-        x = (self.root.winfo_screenwidth() // 2) - 250
-        y = (self.root.winfo_screenheight() // 2) - 200
-        self.root.geometry(f"+{x}+{y}")
+        # Start maximized
+        self.root.state("zoomed")
 
         bg_color = config.background_color
 
+        # Main container with centering
+        main_container = tk.Frame(self.root, bg=bg_color)
+        main_container.place(relx=0.5, rely=0.5, anchor="center")
+
         # Title
         tk.Label(
-            self.root,
+            main_container,
             text="🔤 My Alphabet Game 🔤",
-            font=("Arial", 24, "bold"),
+            font=("Arial", 48, "bold"),
             bg=bg_color,
             fg="#333333",
-        ).pack(pady=(30, 20))
+        ).pack(pady=(0, 40))
 
         # Settings frame
-        settings_frame = tk.Frame(self.root, bg=bg_color)
-        settings_frame.pack(pady=20, padx=40, fill=tk.X)
+        settings_frame = tk.Frame(main_container, bg=bg_color)
+        settings_frame.pack(pady=20)
 
         # Images folder
+        folder_row = tk.Frame(settings_frame, bg=bg_color)
+        folder_row.pack(pady=15, fill=tk.X)
+
         tk.Label(
-            settings_frame,
+            folder_row,
             text="Images Folder:",
-            font=("Arial", 12),
+            font=("Arial", 18),
             bg=bg_color,
-            anchor="w",
-        ).grid(row=0, column=0, sticky="w", pady=10)
+            width=18,
+            anchor="e",
+        ).pack(side=tk.LEFT, padx=(0, 15))
 
         self.folder_var = tk.StringVar(value=str(config.images_folder))
-        folder_frame = tk.Frame(settings_frame, bg=bg_color)
-        folder_frame.grid(row=0, column=1, sticky="ew", pady=10, padx=(10, 0))
-
         self.folder_entry = tk.Entry(
-            folder_frame,
+            folder_row,
             textvariable=self.folder_var,
-            font=("Arial", 11),
-            width=25,
+            font=("Arial", 16),
+            width=35,
         )
-        self.folder_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.folder_entry.pack(side=tk.LEFT)
 
         tk.Button(
-            folder_frame,
+            folder_row,
             text="Browse...",
-            font=("Arial", 10),
+            font=("Arial", 14),
             command=self._browse_folder,
-        ).pack(side=tk.LEFT, padx=(5, 0))
+            padx=15,
+            pady=5,
+        ).pack(side=tk.LEFT, padx=(10, 0))
 
-        # Pictures per round
+        # Pictures per round with +/- buttons
+        pictures_row = tk.Frame(settings_frame, bg=bg_color)
+        pictures_row.pack(pady=15, fill=tk.X)
+
         tk.Label(
-            settings_frame,
+            pictures_row,
             text="Pictures per Round:",
-            font=("Arial", 12),
+            font=("Arial", 18),
             bg=bg_color,
-            anchor="w",
-        ).grid(row=1, column=0, sticky="w", pady=10)
+            width=18,
+            anchor="e",
+        ).pack(side=tk.LEFT, padx=(0, 15))
 
         self.pictures_var = tk.IntVar(value=config.pictures_per_round)
-        pictures_spin = tk.Spinbox(
-            settings_frame,
-            from_=2,
-            to=8,
-            textvariable=self.pictures_var,
-            font=("Arial", 12),
-            width=5,
-        )
-        pictures_spin.grid(row=1, column=1, sticky="w", pady=10, padx=(10, 0))
 
-        # Max rounds
+        tk.Button(
+            pictures_row,
+            text="−",
+            font=("Arial", 24, "bold"),
+            command=lambda: self._adjust_value(self.pictures_var, -1, 2, 8),
+            width=3,
+            height=1,
+            bg="#e0e0e0",
+        ).pack(side=tk.LEFT)
+
         tk.Label(
-            settings_frame,
-            text="Number of Rounds:",
-            font=("Arial", 12),
+            pictures_row,
+            textvariable=self.pictures_var,
+            font=("Arial", 24, "bold"),
             bg=bg_color,
-            anchor="w",
-        ).grid(row=2, column=0, sticky="w", pady=10)
+            width=4,
+        ).pack(side=tk.LEFT, padx=10)
+
+        tk.Button(
+            pictures_row,
+            text="+",
+            font=("Arial", 24, "bold"),
+            command=lambda: self._adjust_value(self.pictures_var, 1, 2, 8),
+            width=3,
+            height=1,
+            bg="#e0e0e0",
+        ).pack(side=tk.LEFT)
+
+        # Number of rounds with +/- buttons
+        rounds_row = tk.Frame(settings_frame, bg=bg_color)
+        rounds_row.pack(pady=15, fill=tk.X)
+
+        tk.Label(
+            rounds_row,
+            text="Number of Rounds:",
+            font=("Arial", 18),
+            bg=bg_color,
+            width=18,
+            anchor="e",
+        ).pack(side=tk.LEFT, padx=(0, 15))
 
         self.rounds_var = tk.IntVar(
             value=config.max_rounds if config.max_rounds > 0 else 10
         )
-        rounds_spin = tk.Spinbox(
-            settings_frame,
-            from_=1,
-            to=26,
-            textvariable=self.rounds_var,
-            font=("Arial", 12),
-            width=5,
-        )
-        rounds_spin.grid(row=2, column=1, sticky="w", pady=10, padx=(10, 0))
 
-        settings_frame.columnconfigure(1, weight=1)
+        tk.Button(
+            rounds_row,
+            text="−",
+            font=("Arial", 24, "bold"),
+            command=lambda: self._adjust_value(self.rounds_var, -1, 1, 26),
+            width=3,
+            height=1,
+            bg="#e0e0e0",
+        ).pack(side=tk.LEFT)
+
+        tk.Label(
+            rounds_row,
+            textvariable=self.rounds_var,
+            font=("Arial", 24, "bold"),
+            bg=bg_color,
+            width=4,
+        ).pack(side=tk.LEFT, padx=10)
+
+        tk.Button(
+            rounds_row,
+            text="+",
+            font=("Arial", 24, "bold"),
+            command=lambda: self._adjust_value(self.rounds_var, 1, 1, 26),
+            width=3,
+            height=1,
+            bg="#e0e0e0",
+        ).pack(side=tk.LEFT)
 
         # Buttons frame
-        button_frame = tk.Frame(self.root, bg=bg_color)
-        button_frame.pack(pady=30)
+        button_frame = tk.Frame(main_container, bg=bg_color)
+        button_frame.pack(pady=40)
 
         tk.Button(
             button_frame,
             text="Start Game",
-            font=("Arial", 14, "bold"),
+            font=("Arial", 20, "bold"),
             command=self._start_game,
             bg=config.play_again_color,
             fg="white",
             activebackground=config.play_again_hover,
             activeforeground="white",
-            width=12,
-        ).pack(side=tk.LEFT, padx=10)
+            width=14,
+            height=2,
+        ).pack(side=tk.LEFT, padx=15)
 
         tk.Button(
             button_frame,
             text="Quit",
-            font=("Arial", 14),
+            font=("Arial", 20),
             command=self._quit,
             bg=config.quit_color,
             fg="white",
             activebackground=config.quit_hover,
             activeforeground="white",
-            width=12,
-        ).pack(side=tk.LEFT, padx=10)
+            width=14,
+            height=2,
+        ).pack(side=tk.LEFT, padx=15)
+
+    def _adjust_value(
+        self, var: tk.IntVar, delta: int, min_val: int, max_val: int
+    ) -> None:
+        """Adjust an IntVar value within bounds."""
+        new_val = var.get() + delta
+        if min_val <= new_val <= max_val:
+            var.set(new_val)
 
     def _browse_folder(self) -> None:
         """Open folder browser dialog."""
@@ -761,23 +836,28 @@ def run_game(config_path: str | Path | None = None) -> None:
     """
     config = Config(config_path)
 
-    # Show menu window
-    menu = MenuWindow(config)
-    settings = menu.run()
+    while True:
+        # Show menu window
+        menu = MenuWindow(config)
+        settings = menu.run()
 
-    if settings is None:
-        return  # User cancelled
+        if settings is None:
+            return  # User cancelled
 
-    # Update config with user settings
-    config._data["images_folder"] = str(settings["images_folder"])
-    config._data["pictures_per_round"] = settings["pictures_per_round"]
-    config._data["game"]["max_rounds"] = settings["max_rounds"]
-    # Update config_dir for proper path resolution
-    config._config_dir = (
-        settings["images_folder"].parent
-        if not settings["images_folder"].is_absolute()
-        else None
-    )
+        # Update config with user settings
+        config._data["images_folder"] = str(settings["images_folder"])
+        config._data["pictures_per_round"] = settings["pictures_per_round"]
+        config._data["game"]["max_rounds"] = settings["max_rounds"]
+        # Update config_dir for proper path resolution
+        config._config_dir = (
+            settings["images_folder"].parent
+            if not settings["images_folder"].is_absolute()
+            else None
+        )
 
-    game = AlphabetGame(config)
-    game.run()
+        game = AlphabetGame(config)
+        game.run()
+
+        # Check if we should return to menu or exit
+        if not game._return_to_menu:
+            break  # User quit, exit completely

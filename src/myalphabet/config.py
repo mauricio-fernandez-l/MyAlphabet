@@ -30,6 +30,8 @@ DEFAULT_CONFIG = {
         "play_again_hover": "#1976D2",
         "quit_color": "#FF9800",
         "quit_hover": "#F57C00",
+        "menu_color": "#4CAF50",
+        "menu_hover": "#388E3C",
     },
     "sound": {
         "enabled": False,
@@ -222,6 +224,14 @@ class Config:
     @property
     def quit_hover(self) -> str:
         return self._data["buttons"]["quit_hover"]
+
+    @property
+    def menu_color(self) -> str:
+        return self._data["buttons"]["menu_color"]
+
+    @property
+    def menu_hover(self) -> str:
+        return self._data["buttons"]["menu_hover"]
 
     def validate(self) -> list[str]:
         return validate_config(self._data, self._config_dir)
