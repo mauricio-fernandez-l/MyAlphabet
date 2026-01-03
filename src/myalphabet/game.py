@@ -208,6 +208,18 @@ class AlphabetGame:
         )
         self.score_label.pack(side=tk.LEFT, padx=20)
 
+        self.menu_button = tk.Button(
+            self.controls_frame,
+            text="Main Menu",
+            font=("Arial", 16),
+            command=self._go_to_menu,
+            bg=self.config.menu_color,
+            fg="white",
+            activebackground=self.config.menu_hover,
+            activeforeground="white",
+        )
+        self.menu_button.pack(side=tk.LEFT, padx=20)
+
         self.quit_button = tk.Button(
             self.controls_frame,
             text="Quit",
