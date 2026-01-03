@@ -19,6 +19,7 @@ DEFAULT_CONFIG = {
     },
     "game": {
         "max_rounds": 7,
+        "letter_display_delay_ms": 1500,
         "highlight_duration_ms": 1500,
         "next_round_delay_ms": 2000,
         "background_color": "#f0f8ff",
@@ -188,6 +189,11 @@ class Config:
     def max_rounds(self) -> int:
         """Return max rounds (0 = unlimited)."""
         return self._data["game"].get("max_rounds", 0)
+
+    @property
+    def letter_display_delay_ms(self) -> int:
+        """Return delay before showing images (0 = no delay)."""
+        return self._data["game"].get("letter_display_delay_ms", 0)
 
     @property
     def highlight_duration_ms(self) -> int:

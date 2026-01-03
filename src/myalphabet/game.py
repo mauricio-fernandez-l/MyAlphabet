@@ -342,17 +342,39 @@ class AlphabetGame:
             messagebox.showerror("Error", str(e))
             return
 
-        # Create buttons and load images
+        # Create buttons but keep them hidden initially if delay is set
         self._create_image_buttons(len(self.current_images))
 
+        # Load images into buttons
         for i, (button, image_path) in enumerate(
             zip(self.image_buttons, self.current_images)
         ):
             button.load_image(image_path)
             button.clear_highlight()
-            button.set_enabled(True)
+            button.set_enabled(False)  # Disabled until shown
 
         self.rounds_played += 1
+
+        # Show images after delay, or immediately if no delay
+        if self.config.letter_display_delay_ms > 0:
+            # Hide image buttons initially
+            for button in self.image_buttons:
+                button.pack_forget() if button.winfo_manager() == 'pack' else None
+                button.grid_remove()
+            # Show after delay
+            self.root.after(self.config.letter_display_delay_ms, self._show_images)
+        else:
+            self._show_images()
+
+    def _show_images(self) -> None:
+        """Show the image buttons and enable them."""
+        # Re-show all buttons in grid
+        cols = min(len(self.image_buttons), 4)
+        for i, button in enumerate(self.image_buttons):
+            row = i // cols
+            col = i % cols
+            button.grid(row=row, column=col, padx=10, pady=10)
+            button.set_enabled(True)
 
     def _on_image_click(self, button: ImageButton) -> None:
         """Handle image button click."""
