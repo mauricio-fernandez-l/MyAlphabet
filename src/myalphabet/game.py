@@ -392,6 +392,19 @@ class AlphabetGame:
                         pass  # Silently ignore sound errors
                     break
 
+    def _play_sound(self, sound_path: Path | None) -> None:
+        """Play a sound file if it exists."""
+        if not self.config.sound_enabled:
+            return
+        if not sound_path or not sound_path.exists():
+            return
+        try:
+            winsound.PlaySound(
+                str(sound_path), winsound.SND_FILENAME | winsound.SND_ASYNC
+            )
+        except Exception:
+            pass  # Silently ignore sound errors
+
     def _show_images(self) -> None:
         """Show the image buttons and enable them."""
         # Re-show all buttons in grid
@@ -427,6 +440,7 @@ class AlphabetGame:
         if is_correct:
             # Correct answer!
             button.set_highlight("#00ff00")  # Green
+            self._play_sound(self.config.correct_sound)
             self.score += 1
             self.score_label.configure(text=f"Score: {self.score}")
 
@@ -442,6 +456,7 @@ class AlphabetGame:
         else:
             # Wrong answer
             button.set_highlight("#ff0000")  # Red
+            self._play_sound(self.config.wrong_sound)
             # Highlight the correct answer
             self.image_buttons[self.correct_index].set_highlight("#0066ff")
 

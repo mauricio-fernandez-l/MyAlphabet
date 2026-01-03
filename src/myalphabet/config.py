@@ -261,5 +261,27 @@ class Config:
             folder = self._config_dir / folder
         return folder.resolve()
 
+    @property
+    def correct_sound(self) -> Path | None:
+        """Return correct answer sound path, resolving relative paths from config location."""
+        sound_str = self._data.get("sound", {}).get("correct_sound", "")
+        if not sound_str:
+            return None
+        sound_path = Path(sound_str)
+        if not sound_path.is_absolute() and self._config_dir:
+            sound_path = self._config_dir / sound_path
+        return sound_path.resolve()
+
+    @property
+    def wrong_sound(self) -> Path | None:
+        """Return wrong answer sound path, resolving relative paths from config location."""
+        sound_str = self._data.get("sound", {}).get("wrong_sound", "")
+        if not sound_str:
+            return None
+        sound_path = Path(sound_str)
+        if not sound_path.is_absolute() and self._config_dir:
+            sound_path = self._config_dir / sound_path
+        return sound_path.resolve()
+
     def validate(self) -> list[str]:
         return validate_config(self._data, self._config_dir)
