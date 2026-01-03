@@ -163,75 +163,67 @@ class AlphabetGame:
         """Set up the game UI content inside main_frame."""
         bg_color = self.config.background_color
 
-        # Progress indicator at the very top
-        if self.config.max_rounds > 0:
-            self.progress_frame = tk.Frame(self.main_frame, bg=bg_color)
-            self.progress_frame.pack(pady=(0, 20))
-            self._create_progress_boxes()
-
-        # Top section - Letter display
-        self.letter_frame = tk.Frame(self.main_frame, bg=bg_color)
-        self.letter_frame.pack(pady=(0, 30))
-
-        self.letter_label = tk.Label(
-            self.letter_frame,
-            text="",
-            font=("Arial", self.config.letter_font_size, "bold"),
-            bg=bg_color,
-            fg="#333333",
-        )
-        self.letter_label.pack()
-
-        if self.config.show_letter_hint:
-            self.hint_label = tk.Label(
-                self.letter_frame,
-                text="",
-                font=("Arial", 24),
-                bg=bg_color,
-                fg="#666666",
-            )
-            self.hint_label.pack()
-
-        # Middle section - Images
-        self.images_frame = tk.Frame(self.main_frame, bg=bg_color)
-        self.images_frame.pack(expand=True)
-
-        # Bottom section - Score and controls
-        self.controls_frame = tk.Frame(self.main_frame, bg=bg_color)
-        self.controls_frame.pack(pady=(30, 0))
-
-        self.score_label = tk.Label(
-            self.controls_frame,
-            text="Score: 0",
-            font=("Arial", 20),
-            bg=bg_color,
-            fg="#333333",
-        )
-        self.score_label.pack(side=tk.LEFT, padx=20)
+        # Top right buttons (Menu and Quit)
+        self.top_right_frame = tk.Frame(self.main_frame, bg=bg_color)
+        self.top_right_frame.pack(anchor="ne", pady=(0, 10))
 
         self.menu_button = tk.Button(
-            self.controls_frame,
+            self.top_right_frame,
             text="Main Menu",
-            font=("Arial", 16),
+            font=("Arial", 14),
             command=self._go_to_menu,
             bg=self.config.menu_color,
             fg="white",
             activebackground=self.config.menu_hover,
             activeforeground="white",
         )
-        self.menu_button.pack(side=tk.LEFT, padx=20)
+        self.menu_button.pack(side=tk.LEFT, padx=(0, 10))
 
         self.quit_button = tk.Button(
-            self.controls_frame,
+            self.top_right_frame,
             text="Quit",
-            font=("Arial", 16),
+            font=("Arial", 14),
             command=self.quit_game,
             bg=self.config.quit_color,
             fg="white",
             activebackground=self.config.quit_hover,
             activeforeground="white",
         )
-        self.quit_button.pack(side=tk.LEFT, padx=20)
+        self.quit_button.pack(side=tk.LEFT)
+
+        # Progress indicator at the very top
+        if self.config.max_rounds > 0:
+            self.progress_frame = tk.Frame(self.main_frame, bg=bg_color)
+            self.progress_frame.pack(pady=(0, 20))
+            self._create_progress_boxes()
+
+        # Top section - Letter display (clickable button to replay sound)
+        self.letter_frame = tk.Frame(self.main_frame, bg=bg_color)
+        self.letter_frame.pack(pady=(0, 30))
+
+        self.letter_button = tk.Button(
+            self.letter_frame,
+            text="",
+            font=("Arial", self.config.letter_font_size, "bold"),
+            bg=bg_color,
+            fg="#333333",
+            activebackground=bg_color,
+            activeforeground="#333333",
+            bd=0,
+            highlightthickness=0,
+            command=self._on_letter_click,
+            cursor="hand2",
+        )
+        self.letter_button.pack()
+
+        # Middle section - Images
+        self.images_frame = tk.Frame(self.main_frame, bg=bg_color)
+        self.images_frame.pack(expand=True)
+
+    def _on_letter_click(self) -> None:
+        """Handle letter button click - replay the letter sound."""
+        if self.current_letter:
+            self._play_letter_sound(self.current_letter)
 
     def _load_game_data(self) -> None:
         """Load available letters from the images folder."""
@@ -325,11 +317,7 @@ class AlphabetGame:
         self.current_letter = self._get_next_letter()
 
         # Update letter display
-        self.letter_label.configure(text=self.current_letter)
-        if self.config.show_letter_hint:
-            self.hint_label.configure(
-                text=f"Find the picture that starts with '{self.current_letter}'!"
-            )
+        self.letter_button.configure(text=self.current_letter)
 
         # Play letter sound if available
         self._play_letter_sound(self.current_letter)
@@ -442,7 +430,6 @@ class AlphabetGame:
             button.set_highlight("#00ff00")  # Green
             self._play_sound(self.config.correct_sound)
             self.score += 1
-            self.score_label.configure(text=f"Score: {self.score}")
 
             # Check if game is complete
             if (
