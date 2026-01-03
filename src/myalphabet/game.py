@@ -2,6 +2,7 @@
 
 import random
 import tkinter as tk
+import winsound
 from dataclasses import dataclass
 from pathlib import Path
 from tkinter import messagebox
@@ -330,6 +331,9 @@ class AlphabetGame:
                 text=f"Find the picture that starts with '{self.current_letter}'!"
             )
 
+        # Play letter sound if available
+        self._play_letter_sound(self.current_letter)
+
         # Get images for this round
         try:
             self.current_images, self.correct_index = select_round_images(
@@ -359,12 +363,34 @@ class AlphabetGame:
         if self.config.letter_display_delay_ms > 0:
             # Hide image buttons initially
             for button in self.image_buttons:
-                button.pack_forget() if button.winfo_manager() == 'pack' else None
+                button.pack_forget() if button.winfo_manager() == "pack" else None
                 button.grid_remove()
             # Show after delay
             self.root.after(self.config.letter_display_delay_ms, self._show_images)
         else:
             self._show_images()
+
+    def _play_letter_sound(self, letter: str) -> None:
+        """Play the sound file for the given letter if available."""
+        if not self.config.sound_enabled:
+            return
+
+        sounds_folder = self.config.sounds_folder
+        if not sounds_folder or not sounds_folder.exists():
+            return
+
+        # Look for sound file (case-insensitive)
+        letter_lower = letter.lower()
+        for sound_file in sounds_folder.iterdir():
+            if sound_file.suffix.lower() == ".wav":
+                if sound_file.stem.lower() == letter_lower:
+                    try:
+                        winsound.PlaySound(
+                            str(sound_file), winsound.SND_FILENAME | winsound.SND_ASYNC
+                        )
+                    except Exception:
+                        pass  # Silently ignore sound errors
+                    break
 
     def _show_images(self) -> None:
         """Show the image buttons and enable them."""

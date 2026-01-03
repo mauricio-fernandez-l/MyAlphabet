@@ -35,7 +35,8 @@ DEFAULT_CONFIG = {
         "menu_hover": "#388E3C",
     },
     "sound": {
-        "enabled": False,
+        "enabled": True,
+        "sounds_folder": "",
         "correct_sound": "",
         "wrong_sound": "",
     },
@@ -238,6 +239,22 @@ class Config:
     @property
     def menu_hover(self) -> str:
         return self._data["buttons"]["menu_hover"]
+
+    @property
+    def sound_enabled(self) -> bool:
+        """Return whether sound is enabled."""
+        return self._data.get("sound", {}).get("enabled", True)
+
+    @property
+    def sounds_folder(self) -> Path | None:
+        """Return sounds folder path, resolving relative paths from config location."""
+        folder_str = self._data.get("sound", {}).get("sounds_folder", "")
+        if not folder_str:
+            return None
+        folder = Path(folder_str)
+        if not folder.is_absolute() and self._config_dir:
+            folder = self._config_dir / folder
+        return folder.resolve()
 
     def validate(self) -> list[str]:
         return validate_config(self._data, self._config_dir)
