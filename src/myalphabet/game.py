@@ -668,7 +668,7 @@ class MenuWindow:
         # Title
         tk.Label(
             main_container,
-            text="🔤 My Alphabet Game 🔤",
+            text=f"🔤 {config.game_name} 🔤",
             font=("Arial", 48, "bold"),
             bg=bg_color,
             fg="#333333",

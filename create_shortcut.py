@@ -87,8 +87,11 @@ def create_shortcut():
         print(f"Error: Desktop folder not found")
         sys.exit(1)
 
+    # Get game name from config
+    game_name = config.get("game_name", "MyAlphabet")
+
     # Create shortcut
-    shortcut_path = desktop / "MyAlphabet.lnk"
+    shortcut_path = desktop / f"{game_name}.lnk"
 
     shell = win32com.client.Dispatch("WScript.Shell")
     shortcut = shell.CreateShortCut(str(shortcut_path))
@@ -107,7 +110,7 @@ def create_shortcut():
     shortcut.WorkingDirectory = str(project_root)
 
     # Description
-    shortcut.Description = "MyAlphabet - Learn the alphabet with pictures!"
+    shortcut.Description = f"{game_name} - Learn the alphabet with pictures!"
 
     # Icon
     if ico_path and ico_path.exists():

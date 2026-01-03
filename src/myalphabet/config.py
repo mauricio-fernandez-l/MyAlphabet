@@ -151,6 +151,11 @@ class Config:
         self._data, self._config_dir = load_config(config_path)
 
     @property
+    def game_name(self) -> str:
+        """Return custom game name or default."""
+        return self._data.get("game_name", "My Alphabet Game")
+
+    @property
     def images_folder(self) -> Path:
         """Return images folder path, resolving relative paths from config location."""
         folder = Path(self._data["images_folder"])
