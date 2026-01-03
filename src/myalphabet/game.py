@@ -109,8 +109,10 @@ class ImageButton(tk.Canvas):
 class AlphabetGame:
     """Main game class managing the alphabet learning game."""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, root: tk.Tk, on_menu_callback: Callable[[], None]):
         self.config = config
+        self.root = root
+        self.on_menu_callback = on_menu_callback
         self.available_letters: set[str] = set()
         self.letter_queue: list[str] = []  # Shuffled queue of letters for fair rotation
         self.current_letter: str = ""
@@ -121,32 +123,9 @@ class AlphabetGame:
         self.rounds_played: int = 0
         self.round_results: list[RoundResult] = []  # Track all round results
         self.progress_boxes: list[tk.Canvas] = []  # Progress indicator boxes
-        self._return_to_menu: bool = False  # Flag to return to main menu
-
-        # Initialize main window
-        self.root = tk.Tk()
-        self.root.title(config.window_title)
-        self.root.configure(bg=config.background_color)
-
-        if config.fullscreen:
-            self.root.attributes("-fullscreen", True)
-            self.root.bind(
-                "<Escape>", lambda e: self.root.attributes("-fullscreen", False)
-            )
-        else:
-            # Start maximized
-            self.root.state("zoomed")
 
         self._setup_ui()
         self._load_game_data()
-
-    def _center_window(self) -> None:
-        """Center the window on the screen."""
-        width = self.root.winfo_width()
-        height = self.root.winfo_height()
-        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.root.winfo_screenheight() // 2) - (height // 2)
-        self.root.geometry(f"+{x}+{y}")
 
     def _setup_ui(self) -> None:
         """Set up the user interface."""
@@ -638,8 +617,9 @@ class AlphabetGame:
 
     def _go_to_menu(self) -> None:
         """Close game and signal to return to menu."""
-        self._return_to_menu = True
-        self.root.quit()
+        # Clear the game frame
+        self.main_frame.destroy()
+        self.on_menu_callback()
 
     def _restart_game(self) -> None:
         """Restart the game for a new session."""
@@ -674,36 +654,28 @@ class AlphabetGame:
         else:
             self.root.quit()
 
-    def run(self) -> None:
-        """Run the game main loop."""
-        self.root.mainloop()
-        self.root.destroy()
+    def destroy(self) -> None:
+        """Clean up the game frame."""
+        self.main_frame.destroy()
 
 
-class MenuWindow:
-    """Menu window for game settings before starting."""
+class MenuView:
+    """Menu view for game settings before starting."""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, root: tk.Tk, on_start_callback: Callable[[dict], None]):
         self.config = config
-        self.result: dict | None = None
-
-        # Create menu window
-        self.root = tk.Tk()
-        self.root.title("My Alphabet - Settings")
-        self.root.configure(bg=config.background_color)
-
-        # Start maximized
-        self.root.state("zoomed")
+        self.root = root
+        self.on_start_callback = on_start_callback
 
         bg_color = config.background_color
 
         # Main container with centering
-        main_container = tk.Frame(self.root, bg=bg_color)
-        main_container.place(relx=0.5, rely=0.5, anchor="center")
+        self.main_container = tk.Frame(self.root, bg=bg_color)
+        self.main_container.place(relx=0.5, rely=0.5, anchor="center")
 
         # Title
         tk.Label(
-            main_container,
+            self.main_container,
             text=f"🔤 {config.game_name} 🔤",
             font=("Arial", 48, "bold"),
             bg=bg_color,
@@ -711,7 +683,7 @@ class MenuWindow:
         ).pack(pady=(0, 40))
 
         # Settings frame
-        settings_frame = tk.Frame(main_container, bg=bg_color)
+        settings_frame = tk.Frame(self.main_container, bg=bg_color)
         settings_frame.pack(pady=20)
 
         # Images folder
@@ -834,7 +806,7 @@ class MenuWindow:
         ).pack(side=tk.LEFT)
 
         # Buttons frame
-        button_frame = tk.Frame(main_container, bg=bg_color)
+        button_frame = tk.Frame(self.main_container, bg=bg_color)
         button_frame.pack(pady=40)
 
         tk.Button(
@@ -904,23 +876,71 @@ class MenuWindow:
             )
             return
 
-        self.result = {
+        settings = {
             "images_folder": folder,
             "pictures_per_round": self.pictures_var.get(),
             "max_rounds": self.rounds_var.get(),
         }
-        self.root.quit()
+        # Destroy menu view and call start callback
+        self.main_container.destroy()
+        self.on_start_callback(settings)
 
     def _quit(self) -> None:
         """Quit without starting."""
-        self.result = None
         self.root.quit()
 
-    def run(self) -> dict | None:
-        """Run the menu and return settings or None if cancelled."""
+    def destroy(self) -> None:
+        """Clean up the menu view."""
+        self.main_container.destroy()
+
+
+class GameApp:
+    """Main application managing menu and game views in a single window."""
+
+    def __init__(self, config: Config):
+        self.config = config
+        self.current_view = None
+
+        # Create main window
+        self.root = tk.Tk()
+        self.root.title(config.game_name)
+        self.root.configure(bg=config.background_color)
+
+        if config.fullscreen:
+            self.root.attributes("-fullscreen", True)
+            self.root.bind(
+                "<Escape>", lambda e: self.root.attributes("-fullscreen", False)
+            )
+        else:
+            # Start maximized
+            self.root.state("zoomed")
+
+        # Show menu initially
+        self._show_menu()
+
+    def _show_menu(self) -> None:
+        """Show the menu view."""
+        self.current_view = MenuView(self.config, self.root, self._start_game)
+
+    def _start_game(self, settings: dict) -> None:
+        """Start the game with given settings."""
+        # Update config with user settings
+        self.config._data["images_folder"] = str(settings["images_folder"])
+        self.config._data["pictures_per_round"] = settings["pictures_per_round"]
+        self.config._data["game"]["max_rounds"] = settings["max_rounds"]
+        # Update config_dir for proper path resolution
+        self.config._config_dir = (
+            settings["images_folder"].parent
+            if not settings["images_folder"].is_absolute()
+            else None
+        )
+
+        # Create game view
+        self.current_view = AlphabetGame(self.config, self.root, self._show_menu)
+
+    def run(self) -> None:
+        """Run the application."""
         self.root.mainloop()
-        self.root.destroy()
-        return self.result
 
 
 def run_game(config_path: str | Path | None = None) -> None:
@@ -931,29 +951,5 @@ def run_game(config_path: str | Path | None = None) -> None:
         config_path: Optional path to config file.
     """
     config = Config(config_path)
-
-    while True:
-        # Show menu window
-        menu = MenuWindow(config)
-        settings = menu.run()
-
-        if settings is None:
-            return  # User cancelled
-
-        # Update config with user settings
-        config._data["images_folder"] = str(settings["images_folder"])
-        config._data["pictures_per_round"] = settings["pictures_per_round"]
-        config._data["game"]["max_rounds"] = settings["max_rounds"]
-        # Update config_dir for proper path resolution
-        config._config_dir = (
-            settings["images_folder"].parent
-            if not settings["images_folder"].is_absolute()
-            else None
-        )
-
-        game = AlphabetGame(config)
-        game.run()
-
-        # Check if we should return to menu or exit
-        if not game._return_to_menu:
-            break  # User quit, exit completely
+    app = GameApp(config)
+    app.run()
