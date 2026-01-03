@@ -1,0 +1,41 @@
+# Configuration file for MyAlphabet game
+# Copy this file to your desired location and adjust the settings
+
+# Path to the folder containing letter images
+# Can be absolute or relative (relative paths are resolved from config file location)
+# Images are matched by their first letter, e.g., Lion.png -> L, Mauricio.jpg -> M
+images_folder: "data/test"
+
+# Number of pictures to show per round (including the correct one)
+pictures_per_round: 4
+
+# Restrict the game to specific letters (optional)
+# Leave empty to auto-detect from available images in the folder
+# Example: [A, D, L, M, P] to only practice these letters
+allowed_letters: []
+
+# Window settings
+window:
+  width: 1024
+  height: 768
+  title: "My Alphabet Game"
+  fullscreen: false
+
+# Game settings
+game:
+  # Highlight duration in milliseconds after clicking
+  highlight_duration_ms: 1500
+  # Delay before next round in milliseconds (after correct answer)
+  next_round_delay_ms: 2000
+  # Background color (hex or named color)
+  background_color: "#f0f8ff"
+  # Font size for the letter display
+  letter_font_size: 120
+  # Show letter name (e.g., "L is for...")
+  show_letter_hint: true
+
+# Sound settings (for future use)
+sound:
+  enabled: false
+  correct_sound: ""
+  wrong_sound: ""
