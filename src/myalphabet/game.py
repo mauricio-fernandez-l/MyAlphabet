@@ -566,6 +566,192 @@ class AlphabetGame:
         self.root.mainloop()
 
 
+class MenuWindow:
+    """Menu window for game settings before starting."""
+
+    def __init__(self, config: Config):
+        self.config = config
+        self.result: dict | None = None
+
+        # Create menu window
+        self.root = tk.Tk()
+        self.root.title("My Alphabet - Settings")
+        self.root.configure(bg=config.background_color)
+        self.root.geometry("500x400")
+
+        # Center window
+        self.root.update_idletasks()
+        x = (self.root.winfo_screenwidth() // 2) - 250
+        y = (self.root.winfo_screenheight() // 2) - 200
+        self.root.geometry(f"+{x}+{y}")
+
+        bg_color = config.background_color
+
+        # Title
+        tk.Label(
+            self.root,
+            text="🔤 My Alphabet Game 🔤",
+            font=("Arial", 24, "bold"),
+            bg=bg_color,
+            fg="#333333",
+        ).pack(pady=(30, 20))
+
+        # Settings frame
+        settings_frame = tk.Frame(self.root, bg=bg_color)
+        settings_frame.pack(pady=20, padx=40, fill=tk.X)
+
+        # Images folder
+        tk.Label(
+            settings_frame,
+            text="Images Folder:",
+            font=("Arial", 12),
+            bg=bg_color,
+            anchor="w",
+        ).grid(row=0, column=0, sticky="w", pady=10)
+
+        self.folder_var = tk.StringVar(value=str(config.images_folder))
+        folder_frame = tk.Frame(settings_frame, bg=bg_color)
+        folder_frame.grid(row=0, column=1, sticky="ew", pady=10, padx=(10, 0))
+
+        self.folder_entry = tk.Entry(
+            folder_frame,
+            textvariable=self.folder_var,
+            font=("Arial", 11),
+            width=25,
+        )
+        self.folder_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        tk.Button(
+            folder_frame,
+            text="Browse...",
+            font=("Arial", 10),
+            command=self._browse_folder,
+        ).pack(side=tk.LEFT, padx=(5, 0))
+
+        # Pictures per round
+        tk.Label(
+            settings_frame,
+            text="Pictures per Round:",
+            font=("Arial", 12),
+            bg=bg_color,
+            anchor="w",
+        ).grid(row=1, column=0, sticky="w", pady=10)
+
+        self.pictures_var = tk.IntVar(value=config.pictures_per_round)
+        pictures_spin = tk.Spinbox(
+            settings_frame,
+            from_=2,
+            to=8,
+            textvariable=self.pictures_var,
+            font=("Arial", 12),
+            width=5,
+        )
+        pictures_spin.grid(row=1, column=1, sticky="w", pady=10, padx=(10, 0))
+
+        # Max rounds
+        tk.Label(
+            settings_frame,
+            text="Number of Rounds:",
+            font=("Arial", 12),
+            bg=bg_color,
+            anchor="w",
+        ).grid(row=2, column=0, sticky="w", pady=10)
+
+        self.rounds_var = tk.IntVar(
+            value=config.max_rounds if config.max_rounds > 0 else 10
+        )
+        rounds_spin = tk.Spinbox(
+            settings_frame,
+            from_=1,
+            to=26,
+            textvariable=self.rounds_var,
+            font=("Arial", 12),
+            width=5,
+        )
+        rounds_spin.grid(row=2, column=1, sticky="w", pady=10, padx=(10, 0))
+
+        settings_frame.columnconfigure(1, weight=1)
+
+        # Buttons frame
+        button_frame = tk.Frame(self.root, bg=bg_color)
+        button_frame.pack(pady=30)
+
+        tk.Button(
+            button_frame,
+            text="Start Game",
+            font=("Arial", 14, "bold"),
+            command=self._start_game,
+            bg=config.play_again_color,
+            fg="white",
+            activebackground=config.play_again_hover,
+            activeforeground="white",
+            width=12,
+        ).pack(side=tk.LEFT, padx=10)
+
+        tk.Button(
+            button_frame,
+            text="Quit",
+            font=("Arial", 14),
+            command=self._quit,
+            bg=config.quit_color,
+            fg="white",
+            activebackground=config.quit_hover,
+            activeforeground="white",
+            width=12,
+        ).pack(side=tk.LEFT, padx=10)
+
+    def _browse_folder(self) -> None:
+        """Open folder browser dialog."""
+        from tkinter import filedialog
+
+        folder = filedialog.askdirectory(
+            initialdir=self.folder_var.get(),
+            title="Select Images Folder",
+        )
+        if folder:
+            self.folder_var.set(folder)
+
+    def _start_game(self) -> None:
+        """Validate and start the game."""
+        folder = Path(self.folder_var.get())
+        if not folder.exists():
+            messagebox.showerror("Error", f"Folder does not exist:\n{folder}")
+            return
+        if not folder.is_dir():
+            messagebox.showerror("Error", f"Not a valid folder:\n{folder}")
+            return
+
+        # Check for images
+        from .images import get_available_letters
+
+        letters = get_available_letters(folder)
+        if not letters:
+            messagebox.showerror(
+                "Error",
+                f"No valid images found in:\n{folder}\n\n"
+                "Images should start with a letter (e.g., Apple.png, Lion.jpg)",
+            )
+            return
+
+        self.result = {
+            "images_folder": folder,
+            "pictures_per_round": self.pictures_var.get(),
+            "max_rounds": self.rounds_var.get(),
+        }
+        self.root.quit()
+
+    def _quit(self) -> None:
+        """Quit without starting."""
+        self.result = None
+        self.root.quit()
+
+    def run(self) -> dict | None:
+        """Run the menu and return settings or None if cancelled."""
+        self.root.mainloop()
+        self.root.destroy()
+        return self.result
+
+
 def run_game(config_path: str | Path | None = None) -> None:
     """
     Run the alphabet game.
@@ -575,18 +761,23 @@ def run_game(config_path: str | Path | None = None) -> None:
     """
     config = Config(config_path)
 
-    # Validate configuration
-    errors = config.validate()
-    if errors:
-        root = tk.Tk()
-        root.withdraw()
-        messagebox.showerror(
-            "Configuration Error",
-            "The following configuration errors were found:\n\n"
-            + "\n".join(f"• {e}" for e in errors),
-        )
-        root.destroy()
-        return
+    # Show menu window
+    menu = MenuWindow(config)
+    settings = menu.run()
+
+    if settings is None:
+        return  # User cancelled
+
+    # Update config with user settings
+    config._data["images_folder"] = str(settings["images_folder"])
+    config._data["pictures_per_round"] = settings["pictures_per_round"]
+    config._data["game"]["max_rounds"] = settings["max_rounds"]
+    # Update config_dir for proper path resolution
+    config._config_dir = (
+        settings["images_folder"].parent
+        if not settings["images_folder"].is_absolute()
+        else None
+    )
 
     game = AlphabetGame(config)
     game.run()
