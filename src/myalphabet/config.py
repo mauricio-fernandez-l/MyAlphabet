@@ -25,6 +25,12 @@ DEFAULT_CONFIG = {
         "letter_font_size": 120,
         "show_letter_hint": True,
     },
+    "buttons": {
+        "play_again_color": "#2196F3",
+        "play_again_hover": "#1976D2",
+        "quit_color": "#FF9800",
+        "quit_hover": "#F57C00",
+    },
     "sound": {
         "enabled": False,
         "correct_sound": "",
@@ -200,6 +206,22 @@ class Config:
     @property
     def show_letter_hint(self) -> bool:
         return self._data["game"]["show_letter_hint"]
+
+    @property
+    def play_again_color(self) -> str:
+        return self._data["buttons"]["play_again_color"]
+
+    @property
+    def play_again_hover(self) -> str:
+        return self._data["buttons"]["play_again_hover"]
+
+    @property
+    def quit_color(self) -> str:
+        return self._data["buttons"]["quit_color"]
+
+    @property
+    def quit_hover(self) -> str:
+        return self._data["buttons"]["quit_hover"]
 
     def validate(self) -> list[str]:
         return validate_config(self._data, self._config_dir)

@@ -212,9 +212,9 @@ class AlphabetGame:
             text="Quit",
             font=("Arial", 16),
             command=self.quit_game,
-            bg="#FF9800",
+            bg=self.config.quit_color,
             fg="white",
-            activebackground="#F57C00",
+            activebackground=self.config.quit_hover,
             activeforeground="white",
         )
         self.quit_button.pack(side=tk.LEFT, padx=20)
@@ -511,9 +511,9 @@ class AlphabetGame:
             text="Play Again",
             font=("Arial", 14),
             command=self._restart_game,
-            bg="#2196F3",
+            bg=self.config.play_again_color,
             fg="white",
-            activebackground="#1976D2",
+            activebackground=self.config.play_again_hover,
             activeforeground="white",
         ).pack(side=tk.LEFT, padx=10)
 
@@ -522,9 +522,9 @@ class AlphabetGame:
             text="Quit",
             font=("Arial", 14),
             command=self.root.quit,
-            bg="#FF9800",
+            bg=self.config.quit_color,
             fg="white",
-            activebackground="#F57C00",
+            activebackground=self.config.quit_hover,
             activeforeground="white",
         ).pack(side=tk.LEFT, padx=10)
 
