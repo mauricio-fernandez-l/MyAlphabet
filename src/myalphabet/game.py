@@ -154,6 +154,13 @@ class AlphabetGame:
         self.main_frame = tk.Frame(self.root, bg=bg_color)
         self.main_frame.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
 
+        # Set up the game UI content
+        self._setup_ui_content()
+
+    def _setup_ui_content(self) -> None:
+        """Set up the game UI content inside main_frame."""
+        bg_color = self.config.background_color
+
         # Progress indicator at the very top
         if self.config.max_rounds > 0:
             self.progress_frame = tk.Frame(self.main_frame, bg=bg_color)
@@ -396,25 +403,21 @@ class AlphabetGame:
                 self.root.after(self.config.next_round_delay_ms, self.start_new_round)
 
     def _show_summary(self) -> None:
-        """Show the game summary window with all round results."""
-        # Hide the main game window
-        self.root.withdraw()
+        """Show the game summary in the main game window."""
+        # Clear the main frame content
+        for widget in self.main_frame.winfo_children():
+            widget.destroy()
 
-        # Create summary window
-        summary = tk.Toplevel(self.root)
-        summary.title("Game Complete!")
-        summary.configure(bg=self.config.background_color)
-
-        # Maximize the summary window
-        summary.state("zoomed")
-
-        # Number of columns based on screen width
-        cols = min(6, len(self.round_results))
+        self.progress_boxes.clear()
+        self.image_buttons.clear()
 
         bg_color = self.config.background_color
 
+        # Number of columns based on number of results
+        cols = min(6, len(self.round_results))
+
         # Header
-        header_frame = tk.Frame(summary, bg=bg_color)
+        header_frame = tk.Frame(self.main_frame, bg=bg_color)
         header_frame.pack(pady=20)
 
         tk.Label(
@@ -434,8 +437,10 @@ class AlphabetGame:
         ).pack(pady=(10, 0))
 
         # Scrollable results area
-        canvas = tk.Canvas(summary, bg=bg_color, highlightthickness=0)
-        scrollbar = tk.Scrollbar(summary, orient="vertical", command=canvas.yview)
+        canvas = tk.Canvas(self.main_frame, bg=bg_color, highlightthickness=0)
+        scrollbar = tk.Scrollbar(
+            self.main_frame, orient="vertical", command=canvas.yview
+        )
         results_frame = tk.Frame(canvas, bg=bg_color)
 
         results_frame.bind(
@@ -496,34 +501,24 @@ class AlphabetGame:
                     font=("Arial", 10),
                     bg=card_color,
                     fg="#333333",
-                ).pack()
+                ).pack(pady=(0, 10))
             except Exception:
                 tk.Label(
                     card,
                     text="(image)",
                     font=("Arial", 12),
                     bg=card_color,
-                ).pack(pady=5)
-
-            # Status icon
-            status = "✓" if result.was_correct else "✗"
-            tk.Label(
-                card,
-                text=status,
-                font=("Arial", 24),
-                bg=card_color,
-                fg=border_color,
-            ).pack(pady=(5, 10))
+                ).pack(pady=(5, 10))
 
         # Buttons at bottom
-        button_frame = tk.Frame(summary, bg=bg_color)
-        button_frame.pack(pady=20)
+        button_frame = tk.Frame(self.main_frame, bg=bg_color)
+        button_frame.pack(pady=20, side=tk.BOTTOM)
 
         tk.Button(
             button_frame,
             text="Play Again",
             font=("Arial", 14),
-            command=lambda: self._restart_game(summary),
+            command=self._restart_game,
         ).pack(side=tk.LEFT, padx=10)
 
         tk.Button(
@@ -533,28 +528,22 @@ class AlphabetGame:
             command=self.root.quit,
         ).pack(side=tk.LEFT, padx=10)
 
-        # Handle window close
-        summary.protocol("WM_DELETE_WINDOW", self.root.quit)
-
-    def _restart_game(self, summary_window: tk.Toplevel) -> None:
+    def _restart_game(self) -> None:
         """Restart the game for a new session."""
-        summary_window.destroy()
-
-        # Show the main game window again
-        self.root.deiconify()
+        # Clear the summary content
+        for widget in self.main_frame.winfo_children():
+            widget.destroy()
 
         # Reset game state
         self.score = 0
         self.rounds_played = 0
         self.round_results.clear()
         self.letter_queue.clear()
+        self.progress_boxes.clear()
+        self.image_buttons.clear()
 
-        # Reset progress boxes
-        for box in self.progress_boxes:
-            box.configure(bg="#dddddd")
-
-        # Update score display
-        self.score_label.configure(text="Score: 0")
+        # Rebuild the game UI
+        self._setup_ui_content()
 
         # Start new game
         self.start_new_round()
