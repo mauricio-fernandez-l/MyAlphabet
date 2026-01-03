@@ -166,7 +166,7 @@ class AlphabetGame:
         self.letter_button = tk.Button(
             self.letter_frame,
             text="",
-            font=("Arial", 48, "bold"),
+            font=("Arial", self.config.letter_font_size, "bold"),
             bg="white",
             fg="#333333",
             activebackground="#e0e0e0",
