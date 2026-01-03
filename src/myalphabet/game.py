@@ -163,9 +163,43 @@ class AlphabetGame:
         """Set up the game UI content inside main_frame."""
         bg_color = self.config.background_color
 
-        # Top right buttons (Menu and Quit)
-        self.top_right_frame = tk.Frame(self.main_frame, bg=bg_color)
-        self.top_right_frame.pack(anchor="ne", pady=(0, 10))
+        # Top bar: Progress (left), Letter (center), Buttons (right)
+        self.top_bar = tk.Frame(self.main_frame, bg=bg_color)
+        self.top_bar.pack(fill=tk.X, pady=(0, 10))
+
+        # Configure grid columns for top bar
+        self.top_bar.columnconfigure(0, weight=1)  # Left - progress
+        self.top_bar.columnconfigure(1, weight=1)  # Center - letter
+        self.top_bar.columnconfigure(2, weight=1)  # Right - buttons
+
+        # Left: Progress indicator
+        if self.config.max_rounds > 0:
+            self.progress_frame = tk.Frame(self.top_bar, bg=bg_color)
+            self.progress_frame.grid(row=0, column=0, sticky="w")
+            self._create_progress_boxes()
+
+        # Center: Letter display (clickable button to replay sound)
+        self.letter_frame = tk.Frame(self.top_bar, bg=bg_color)
+        self.letter_frame.grid(row=0, column=1)
+
+        self.letter_button = tk.Button(
+            self.letter_frame,
+            text="",
+            font=("Arial", self.config.letter_font_size, "bold"),
+            bg=bg_color,
+            fg="#333333",
+            activebackground=bg_color,
+            activeforeground="#333333",
+            bd=0,
+            highlightthickness=0,
+            command=self._on_letter_click,
+            cursor="hand2",
+        )
+        self.letter_button.pack()
+
+        # Right: Menu and Quit buttons
+        self.top_right_frame = tk.Frame(self.top_bar, bg=bg_color)
+        self.top_right_frame.grid(row=0, column=2, sticky="e")
 
         self.menu_button = tk.Button(
             self.top_right_frame,
@@ -191,34 +225,9 @@ class AlphabetGame:
         )
         self.quit_button.pack(side=tk.LEFT)
 
-        # Progress indicator at the very top
-        if self.config.max_rounds > 0:
-            self.progress_frame = tk.Frame(self.main_frame, bg=bg_color)
-            self.progress_frame.pack(pady=(0, 20))
-            self._create_progress_boxes()
-
-        # Top section - Letter display (clickable button to replay sound)
-        self.letter_frame = tk.Frame(self.main_frame, bg=bg_color)
-        self.letter_frame.pack(pady=(0, 30))
-
-        self.letter_button = tk.Button(
-            self.letter_frame,
-            text="",
-            font=("Arial", self.config.letter_font_size, "bold"),
-            bg=bg_color,
-            fg="#333333",
-            activebackground=bg_color,
-            activeforeground="#333333",
-            bd=0,
-            highlightthickness=0,
-            command=self._on_letter_click,
-            cursor="hand2",
-        )
-        self.letter_button.pack()
-
-        # Middle section - Images
+        # Images section - takes remaining space
         self.images_frame = tk.Frame(self.main_frame, bg=bg_color)
-        self.images_frame.pack(expand=True)
+        self.images_frame.pack(expand=True, fill=tk.BOTH)
 
     def _on_letter_click(self) -> None:
         """Handle letter button click - replay the letter sound."""
@@ -276,17 +285,40 @@ class AlphabetGame:
             button.destroy()
         self.image_buttons.clear()
 
-        # Calculate button size based on window and number of images
-        # Arrange in a grid
-        cols = min(num_images, 4)
-        rows = (num_images + cols - 1) // cols
+        # Calculate optimal grid layout
+        # For 1-4 images: 1 row, for 5-8 images: 2 rows
+        if num_images <= 4:
+            cols = num_images
+            rows = 1
+        else:
+            cols = 4  # Always 4 columns for 5-8 images
+            rows = 2
 
-        available_width = self.config.window_width - 80
-        available_height = self.config.window_height - 350
+        # Get actual dimensions of images_frame
+        self.root.update_idletasks()
+        frame_width = self.images_frame.winfo_width()
+        frame_height = self.images_frame.winfo_height()
+        
+        # Fallback to window size minus top bar if frame not yet sized
+        if frame_width < 100:
+            frame_width = (self.root.winfo_width() or self.config.window_width) - 40
+        if frame_height < 100:
+            frame_height = (self.root.winfo_height() or self.config.window_height) - 200
 
-        button_width = min(250, available_width // cols - 20)
-        button_height = min(250, available_height // rows - 20)
-        button_size = min(button_width, button_height)
+        # Calculate button size with padding
+        padding = 8
+        available_width = frame_width - (cols + 1) * padding * 2
+        available_height = frame_height - (rows + 1) * padding * 2
+
+        button_width = available_width // cols
+        button_height = available_height // rows
+        button_size = max(80, min(button_width, button_height))
+
+        # Center the grid in the images_frame
+        for i in range(cols):
+            self.images_frame.columnconfigure(i, weight=1)
+        for i in range(rows):
+            self.images_frame.rowconfigure(i, weight=1)
 
         # Create grid of buttons
         for i in range(num_images):
@@ -299,7 +331,7 @@ class AlphabetGame:
                 on_click=self._on_image_click,
                 bg="white",
             )
-            button.grid(row=row, column=col, padx=10, pady=10)
+            button.grid(row=row, column=col, padx=padding, pady=padding)
             button.set_enabled(True)
             self.image_buttons.append(button)
 
