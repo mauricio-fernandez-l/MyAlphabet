@@ -165,7 +165,7 @@ class AlphabetGame:
 
         # Top bar: Progress (left), Letter (center), Buttons (right)
         self.top_bar = tk.Frame(self.main_frame, bg=bg_color)
-        self.top_bar.pack(fill=tk.X, pady=(0, 10))
+        self.top_bar.pack(fill=tk.X)
 
         # Configure grid columns for top bar
         self.top_bar.columnconfigure(0, weight=1)  # Left - progress
@@ -179,19 +179,23 @@ class AlphabetGame:
             self._create_progress_boxes()
 
         # Center: Letter display (clickable button to replay sound)
+        # Use smaller font for compact top bar (about half of configured size)
+        compact_letter_size = max(48, self.config.letter_font_size // 2)
         self.letter_frame = tk.Frame(self.top_bar, bg=bg_color)
         self.letter_frame.grid(row=0, column=1)
 
         self.letter_button = tk.Button(
             self.letter_frame,
             text="",
-            font=("Arial", self.config.letter_font_size, "bold"),
+            font=("Arial", compact_letter_size, "bold"),
             bg=bg_color,
             fg="#333333",
             activebackground=bg_color,
             activeforeground="#333333",
             bd=0,
             highlightthickness=0,
+            padx=20,
+            pady=0,
             command=self._on_letter_click,
             cursor="hand2",
         )
@@ -203,20 +207,20 @@ class AlphabetGame:
 
         self.menu_button = tk.Button(
             self.top_right_frame,
-            text="Main Menu",
-            font=("Arial", 14),
+            text="Menu",
+            font=("Arial", 12),
             command=self._go_to_menu,
             bg=self.config.menu_color,
             fg="white",
             activebackground=self.config.menu_hover,
             activeforeground="white",
         )
-        self.menu_button.pack(side=tk.LEFT, padx=(0, 10))
+        self.menu_button.pack(side=tk.LEFT, padx=(0, 5))
 
         self.quit_button = tk.Button(
             self.top_right_frame,
             text="Quit",
-            font=("Arial", 14),
+            font=("Arial", 12),
             command=self.quit_game,
             bg=self.config.quit_color,
             fg="white",
@@ -298,7 +302,7 @@ class AlphabetGame:
         self.root.update_idletasks()
         frame_width = self.images_frame.winfo_width()
         frame_height = self.images_frame.winfo_height()
-        
+
         # Fallback to window size minus top bar if frame not yet sized
         if frame_width < 100:
             frame_width = (self.root.winfo_width() or self.config.window_width) - 40
