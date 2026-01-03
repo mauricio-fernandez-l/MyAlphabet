@@ -156,6 +156,22 @@ class Config:
         return self._data.get("game_name", "My Alphabet Game")
 
     @property
+    def icon_image(self) -> Path | None:
+        """Return icon image path, resolving relative paths from config location."""
+        icon_str = self._data.get("icon_image", "")
+        if not icon_str:
+            return None
+        icon_path = Path(icon_str)
+        if not icon_path.is_absolute() and self._config_dir:
+            icon_path = self._config_dir / icon_path
+        return icon_path.resolve()
+
+    @property
+    def icon_size(self) -> int:
+        """Return icon size in pixels for menu title."""
+        return self._data.get("icon_size", 80)
+
+    @property
     def images_folder(self) -> Path:
         """Return images folder path, resolving relative paths from config location."""
         folder = Path(self._data["images_folder"])

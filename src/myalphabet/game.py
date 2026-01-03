@@ -109,7 +109,9 @@ class ImageButton(tk.Canvas):
 class AlphabetGame:
     """Main game class managing the alphabet learning game."""
 
-    def __init__(self, config: Config, root: tk.Tk, on_menu_callback: Callable[[], None]):
+    def __init__(
+        self, config: Config, root: tk.Tk, on_menu_callback: Callable[[], None]
+    ):
         self.config = config
         self.root = root
         self.on_menu_callback = on_menu_callback
@@ -662,10 +664,13 @@ class AlphabetGame:
 class MenuView:
     """Menu view for game settings before starting."""
 
-    def __init__(self, config: Config, root: tk.Tk, on_start_callback: Callable[[dict], None]):
+    def __init__(
+        self, config: Config, root: tk.Tk, on_start_callback: Callable[[dict], None]
+    ):
         self.config = config
         self.root = root
         self.on_start_callback = on_start_callback
+        self.icon_photos = []  # Store icon photos to prevent garbage collection
 
         bg_color = config.background_color
 
@@ -673,14 +678,50 @@ class MenuView:
         self.main_container = tk.Frame(self.root, bg=bg_color)
         self.main_container.place(relx=0.5, rely=0.5, anchor="center")
 
-        # Title
-        tk.Label(
-            self.main_container,
-            text=f"🔤 {config.game_name} 🔤",
-            font=("Arial", 48, "bold"),
-            bg=bg_color,
-            fg="#333333",
-        ).pack(pady=(0, 40))
+        # Title frame with optional icons
+        title_frame = tk.Frame(self.main_container, bg=bg_color)
+        title_frame.pack(pady=(0, 40))
+
+        # Load icon for title if available
+        icon_size = config.icon_size
+        if config.icon_image and config.icon_image.exists():
+            try:
+                icon_img = Image.open(config.icon_image)
+                icon_img.thumbnail((icon_size, icon_size), Image.Resampling.LANCZOS)
+                icon_photo = ImageTk.PhotoImage(icon_img)
+                self.icon_photos.append(icon_photo)
+
+                # Left icon
+                tk.Label(title_frame, image=icon_photo, bg=bg_color).pack(
+                    side=tk.LEFT, padx=(0, 15)
+                )
+
+                # Title text
+                tk.Label(
+                    title_frame,
+                    text=config.game_name,
+                    font=("Arial", 48, "bold"),
+                    bg=bg_color,
+                    fg="#333333",
+                ).pack(side=tk.LEFT)
+            except Exception:
+                # Fallback to text-only title
+                tk.Label(
+                    title_frame,
+                    text=f"🔤 {config.game_name} 🔤",
+                    font=("Arial", 48, "bold"),
+                    bg=bg_color,
+                    fg="#333333",
+                ).pack()
+        else:
+            # No icon, use emoji
+            tk.Label(
+                title_frame,
+                text=f"🔤 {config.game_name} 🔤",
+                font=("Arial", 48, "bold"),
+                bg=bg_color,
+                fg="#333333",
+            ).pack()
 
         # Settings frame
         settings_frame = tk.Frame(self.main_container, bg=bg_color)
@@ -900,11 +941,21 @@ class GameApp:
     def __init__(self, config: Config):
         self.config = config
         self.current_view = None
+        self.icon_photo = None  # Store icon to prevent garbage collection
 
         # Create main window
         self.root = tk.Tk()
         self.root.title(config.game_name)
         self.root.configure(bg=config.background_color)
+
+        # Set window icon
+        if config.icon_image and config.icon_image.exists():
+            try:
+                icon_img = Image.open(config.icon_image)
+                self.icon_photo = ImageTk.PhotoImage(icon_img)
+                self.root.iconphoto(True, self.icon_photo)
+            except Exception:
+                pass  # Silently ignore icon errors
 
         if config.fullscreen:
             self.root.attributes("-fullscreen", True)
