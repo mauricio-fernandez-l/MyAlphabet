@@ -207,15 +207,6 @@ class AlphabetGame:
         )
         self.score_label.pack(side=tk.LEFT, padx=20)
 
-        self.next_button = tk.Button(
-            self.controls_frame,
-            text="Next Letter",
-            font=("Arial", 16),
-            command=self.start_new_round,
-            state=tk.DISABLED,
-        )
-        self.next_button.pack(side=tk.LEFT, padx=20)
-
         self.quit_button = tk.Button(
             self.controls_frame,
             text="Quit",
@@ -343,9 +334,6 @@ class AlphabetGame:
             button.load_image(image_path)
             button.clear_highlight()
             button.set_enabled(True)
-
-        # Disable next button until answer is given
-        self.next_button.configure(state=tk.DISABLED)
 
         self.rounds_played += 1
 
