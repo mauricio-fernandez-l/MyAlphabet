@@ -16,6 +16,7 @@ from .images import get_available_letters, select_round_images
 @dataclass
 class RoundResult:
     """Store the result of a single round."""
+
     letter: str
     was_correct: bool
     chosen_image: Path
@@ -241,7 +242,7 @@ class AlphabetGame:
         """Create progress indicator boxes."""
         self.progress_boxes.clear()
         box_size = 30
-        
+
         for i in range(self.config.max_rounds):
             box = tk.Canvas(
                 self.progress_frame,
@@ -329,7 +330,9 @@ class AlphabetGame:
         # Create buttons and load images
         self._create_image_buttons(len(self.current_images))
 
-        for i, (button, image_path) in enumerate(zip(self.image_buttons, self.current_images)):
+        for i, (button, image_path) in enumerate(
+            zip(self.image_buttons, self.current_images)
+        ):
             button.load_image(image_path)
             button.clear_highlight()
             button.set_enabled(True)
@@ -368,7 +371,10 @@ class AlphabetGame:
             self.score_label.configure(text=f"Score: {self.score}")
 
             # Check if game is complete
-            if self.config.max_rounds > 0 and self.rounds_played >= self.config.max_rounds:
+            if (
+                self.config.max_rounds > 0
+                and self.rounds_played >= self.config.max_rounds
+            ):
                 self.root.after(self.config.next_round_delay_ms, self._show_summary)
             else:
                 # Auto-advance after delay
@@ -376,41 +382,41 @@ class AlphabetGame:
         else:
             # Wrong answer
             button.set_highlight("#ff0000")  # Red
-            # Highlight the correct answer too
-            self.image_buttons[self.correct_index].set_highlight("#00ff00")
+            # Highlight the correct answer
+            self.image_buttons[self.correct_index].set_highlight("#0066ff")
 
             # Check if game is complete
-            if self.config.max_rounds > 0 and self.rounds_played >= self.config.max_rounds:
-                self.root.after(self.config.highlight_duration_ms, self._show_summary)
+            if (
+                self.config.max_rounds > 0
+                and self.rounds_played >= self.config.max_rounds
+            ):
+                self.root.after(self.config.next_round_delay_ms, self._show_summary)
             else:
-                # Enable next button after highlighting
-                self.root.after(
-                    self.config.highlight_duration_ms,
-                    lambda: self.next_button.configure(state=tk.NORMAL),
-                )
+                # Auto-advance after delay
+                self.root.after(self.config.next_round_delay_ms, self.start_new_round)
 
     def _show_summary(self) -> None:
         """Show the game summary window with all round results."""
         # Hide the main game window
         self.root.withdraw()
-        
+
         # Create summary window
         summary = tk.Toplevel(self.root)
         summary.title("Game Complete!")
         summary.configure(bg=self.config.background_color)
-        
+
         # Maximize the summary window
         summary.state("zoomed")
-        
+
         # Number of columns based on screen width
         cols = min(6, len(self.round_results))
-        
+
         bg_color = self.config.background_color
-        
+
         # Header
         header_frame = tk.Frame(summary, bg=bg_color)
         header_frame.pack(pady=20)
-        
+
         tk.Label(
             header_frame,
             text="🎉 Game Complete! 🎉",
@@ -418,7 +424,7 @@ class AlphabetGame:
             bg=bg_color,
             fg="#333333",
         ).pack()
-        
+
         tk.Label(
             header_frame,
             text=f"Score: {self.score} / {len(self.round_results)}",
@@ -426,35 +432,36 @@ class AlphabetGame:
             bg=bg_color,
             fg="#666666",
         ).pack(pady=(10, 0))
-        
+
         # Scrollable results area
         canvas = tk.Canvas(summary, bg=bg_color, highlightthickness=0)
         scrollbar = tk.Scrollbar(summary, orient="vertical", command=canvas.yview)
         results_frame = tk.Frame(canvas, bg=bg_color)
-        
+
         results_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
-        
+
         canvas.create_window((0, 0), window=results_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
-        
+
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
+
         # Store photo references to prevent garbage collection
         self._summary_photos: list[ImageTk.PhotoImage] = []
-        
+
         # Display each round result
         for i, result in enumerate(self.round_results):
             row = i // cols
             col = i % cols
-            
+
             # Result card
-            card_color = "#c8e6c9" if result.was_correct else "#ffcdd2"  # Light green or light red
+            card_color = (
+                "#c8e6c9" if result.was_correct else "#ffcdd2"
+            )  # Light green or light red
             border_color = "#4CAF50" if result.was_correct else "#f44336"
-            
+
             card = tk.Frame(
                 results_frame,
                 bg=card_color,
@@ -462,7 +469,7 @@ class AlphabetGame:
                 highlightbackground=border_color,
             )
             card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
-            
+
             # Letter label
             tk.Label(
                 card,
@@ -471,17 +478,17 @@ class AlphabetGame:
                 bg=card_color,
                 fg=border_color,
             ).pack(pady=(10, 5))
-            
+
             # Image (show chosen image)
             try:
                 img = Image.open(result.chosen_image)
                 img.thumbnail((150, 150), Image.Resampling.LANCZOS)
                 photo = ImageTk.PhotoImage(img)
                 self._summary_photos.append(photo)
-                
+
                 img_label = tk.Label(card, image=photo, bg=card_color)
                 img_label.pack(pady=5)
-                
+
                 # Show filename
                 tk.Label(
                     card,
@@ -497,7 +504,7 @@ class AlphabetGame:
                     font=("Arial", 12),
                     bg=card_color,
                 ).pack(pady=5)
-            
+
             # Status icon
             status = "✓" if result.was_correct else "✗"
             tk.Label(
@@ -507,48 +514,48 @@ class AlphabetGame:
                 bg=card_color,
                 fg=border_color,
             ).pack(pady=(5, 10))
-        
+
         # Buttons at bottom
         button_frame = tk.Frame(summary, bg=bg_color)
         button_frame.pack(pady=20)
-        
+
         tk.Button(
             button_frame,
             text="Play Again",
             font=("Arial", 14),
             command=lambda: self._restart_game(summary),
         ).pack(side=tk.LEFT, padx=10)
-        
+
         tk.Button(
             button_frame,
             text="Quit",
             font=("Arial", 14),
             command=self.root.quit,
         ).pack(side=tk.LEFT, padx=10)
-        
+
         # Handle window close
         summary.protocol("WM_DELETE_WINDOW", self.root.quit)
 
     def _restart_game(self, summary_window: tk.Toplevel) -> None:
         """Restart the game for a new session."""
         summary_window.destroy()
-        
+
         # Show the main game window again
         self.root.deiconify()
-        
+
         # Reset game state
         self.score = 0
         self.rounds_played = 0
         self.round_results.clear()
         self.letter_queue.clear()
-        
+
         # Reset progress boxes
         for box in self.progress_boxes:
             box.configure(bg="#dddddd")
-        
+
         # Update score display
         self.score_label.configure(text="Score: 0")
-        
+
         # Start new game
         self.start_new_round()
 
