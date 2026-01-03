@@ -18,6 +18,7 @@ DEFAULT_CONFIG = {
         "fullscreen": False,
     },
     "game": {
+        "max_rounds": 7,
         "highlight_duration_ms": 1500,
         "next_round_delay_ms": 2000,
         "background_color": "#f0f8ff",
@@ -174,6 +175,11 @@ class Config:
     @property
     def fullscreen(self) -> bool:
         return self._data["window"]["fullscreen"]
+
+    @property
+    def max_rounds(self) -> int:
+        """Return max rounds (0 = unlimited)."""
+        return self._data["game"].get("max_rounds", 0)
 
     @property
     def highlight_duration_ms(self) -> int:

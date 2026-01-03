@@ -2,6 +2,7 @@
 
 import random
 import tkinter as tk
+from dataclasses import dataclass
 from pathlib import Path
 from tkinter import messagebox
 from typing import Callable
@@ -10,6 +11,15 @@ from PIL import Image, ImageTk
 
 from .config import Config
 from .images import get_available_letters, select_round_images
+
+
+@dataclass
+class RoundResult:
+    """Store the result of a single round."""
+    letter: str
+    was_correct: bool
+    chosen_image: Path
+    correct_image: Path
 
 
 class ImageButton(tk.Canvas):
@@ -103,9 +113,12 @@ class AlphabetGame:
         self.letter_queue: list[str] = []  # Shuffled queue of letters for fair rotation
         self.current_letter: str = ""
         self.correct_index: int = -1
+        self.current_images: list[Path] = []  # Images for current round
         self.image_buttons: list[ImageButton] = []
         self.score: int = 0
         self.rounds_played: int = 0
+        self.round_results: list[RoundResult] = []  # Track all round results
+        self.progress_boxes: list[tk.Canvas] = []  # Progress indicator boxes
 
         # Initialize main window
         self.root = tk.Tk()
@@ -118,11 +131,8 @@ class AlphabetGame:
                 "<Escape>", lambda e: self.root.attributes("-fullscreen", False)
             )
         else:
-            self.root.geometry(f"{config.window_width}x{config.window_height}")
-
-        # Center window on screen
-        self.root.update_idletasks()
-        self._center_window()
+            # Start maximized
+            self.root.state("zoomed")
 
         self._setup_ui()
         self._load_game_data()
@@ -142,6 +152,12 @@ class AlphabetGame:
         # Main container
         self.main_frame = tk.Frame(self.root, bg=bg_color)
         self.main_frame.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
+
+        # Progress indicator at the very top
+        if self.config.max_rounds > 0:
+            self.progress_frame = tk.Frame(self.main_frame, bg=bg_color)
+            self.progress_frame.pack(pady=(0, 20))
+            self._create_progress_boxes()
 
         # Top section - Letter display
         self.letter_frame = tk.Frame(self.main_frame, bg=bg_color)
@@ -221,6 +237,29 @@ class AlphabetGame:
         # Start the first round
         self.start_new_round()
 
+    def _create_progress_boxes(self) -> None:
+        """Create progress indicator boxes."""
+        self.progress_boxes.clear()
+        box_size = 30
+        
+        for i in range(self.config.max_rounds):
+            box = tk.Canvas(
+                self.progress_frame,
+                width=box_size,
+                height=box_size,
+                bg="#dddddd",
+                highlightthickness=2,
+                highlightbackground="#999999",
+            )
+            box.pack(side=tk.LEFT, padx=3)
+            self.progress_boxes.append(box)
+
+    def _update_progress_box(self, round_index: int, correct: bool) -> None:
+        """Update a progress box color based on result."""
+        if round_index < len(self.progress_boxes):
+            color = "#4CAF50" if correct else "#f44336"  # Green or Red
+            self.progress_boxes[round_index].configure(bg=color)
+
     def _create_image_buttons(self, num_images: int) -> None:
         """Create image buttons for the round."""
         # Clear existing buttons
@@ -277,7 +316,7 @@ class AlphabetGame:
 
         # Get images for this round
         try:
-            images, self.correct_index = select_round_images(
+            self.current_images, self.correct_index = select_round_images(
                 self.config.images_folder,
                 self.current_letter,
                 self.config.pictures_per_round,
@@ -288,9 +327,9 @@ class AlphabetGame:
             return
 
         # Create buttons and load images
-        self._create_image_buttons(len(images))
+        self._create_image_buttons(len(self.current_images))
 
-        for i, (button, image_path) in enumerate(zip(self.image_buttons, images)):
+        for i, (button, image_path) in enumerate(zip(self.image_buttons, self.current_images)):
             button.load_image(image_path)
             button.clear_highlight()
             button.set_enabled(True)
@@ -303,30 +342,215 @@ class AlphabetGame:
     def _on_image_click(self, button: ImageButton) -> None:
         """Handle image button click."""
         clicked_index = self.image_buttons.index(button)
+        is_correct = clicked_index == self.correct_index
 
         # Disable all buttons
         for btn in self.image_buttons:
             btn.set_enabled(False)
 
-        if clicked_index == self.correct_index:
+        # Record round result
+        result = RoundResult(
+            letter=self.current_letter,
+            was_correct=is_correct,
+            chosen_image=self.current_images[clicked_index],
+            correct_image=self.current_images[self.correct_index],
+        )
+        self.round_results.append(result)
+
+        # Update progress indicator
+        if self.config.max_rounds > 0:
+            self._update_progress_box(self.rounds_played - 1, is_correct)
+
+        if is_correct:
             # Correct answer!
             button.set_highlight("#00ff00")  # Green
             self.score += 1
             self.score_label.configure(text=f"Score: {self.score}")
 
-            # Auto-advance after delay
-            self.root.after(self.config.next_round_delay_ms, self.start_new_round)
+            # Check if game is complete
+            if self.config.max_rounds > 0 and self.rounds_played >= self.config.max_rounds:
+                self.root.after(self.config.next_round_delay_ms, self._show_summary)
+            else:
+                # Auto-advance after delay
+                self.root.after(self.config.next_round_delay_ms, self.start_new_round)
         else:
             # Wrong answer
             button.set_highlight("#ff0000")  # Red
             # Highlight the correct answer too
             self.image_buttons[self.correct_index].set_highlight("#00ff00")
 
-            # Enable next button after highlighting
-            self.root.after(
-                self.config.highlight_duration_ms,
-                lambda: self.next_button.configure(state=tk.NORMAL),
+            # Check if game is complete
+            if self.config.max_rounds > 0 and self.rounds_played >= self.config.max_rounds:
+                self.root.after(self.config.highlight_duration_ms, self._show_summary)
+            else:
+                # Enable next button after highlighting
+                self.root.after(
+                    self.config.highlight_duration_ms,
+                    lambda: self.next_button.configure(state=tk.NORMAL),
+                )
+
+    def _show_summary(self) -> None:
+        """Show the game summary window with all round results."""
+        # Hide the main game window
+        self.root.withdraw()
+        
+        # Create summary window
+        summary = tk.Toplevel(self.root)
+        summary.title("Game Complete!")
+        summary.configure(bg=self.config.background_color)
+        
+        # Maximize the summary window
+        summary.state("zoomed")
+        
+        # Number of columns based on screen width
+        cols = min(6, len(self.round_results))
+        
+        bg_color = self.config.background_color
+        
+        # Header
+        header_frame = tk.Frame(summary, bg=bg_color)
+        header_frame.pack(pady=20)
+        
+        tk.Label(
+            header_frame,
+            text="🎉 Game Complete! 🎉",
+            font=("Arial", 28, "bold"),
+            bg=bg_color,
+            fg="#333333",
+        ).pack()
+        
+        tk.Label(
+            header_frame,
+            text=f"Score: {self.score} / {len(self.round_results)}",
+            font=("Arial", 20),
+            bg=bg_color,
+            fg="#666666",
+        ).pack(pady=(10, 0))
+        
+        # Scrollable results area
+        canvas = tk.Canvas(summary, bg=bg_color, highlightthickness=0)
+        scrollbar = tk.Scrollbar(summary, orient="vertical", command=canvas.yview)
+        results_frame = tk.Frame(canvas, bg=bg_color)
+        
+        results_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=results_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Store photo references to prevent garbage collection
+        self._summary_photos: list[ImageTk.PhotoImage] = []
+        
+        # Display each round result
+        for i, result in enumerate(self.round_results):
+            row = i // cols
+            col = i % cols
+            
+            # Result card
+            card_color = "#c8e6c9" if result.was_correct else "#ffcdd2"  # Light green or light red
+            border_color = "#4CAF50" if result.was_correct else "#f44336"
+            
+            card = tk.Frame(
+                results_frame,
+                bg=card_color,
+                highlightthickness=3,
+                highlightbackground=border_color,
             )
+            card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+            
+            # Letter label
+            tk.Label(
+                card,
+                text=result.letter,
+                font=("Arial", 36, "bold"),
+                bg=card_color,
+                fg=border_color,
+            ).pack(pady=(10, 5))
+            
+            # Image (show chosen image)
+            try:
+                img = Image.open(result.chosen_image)
+                img.thumbnail((150, 150), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                self._summary_photos.append(photo)
+                
+                img_label = tk.Label(card, image=photo, bg=card_color)
+                img_label.pack(pady=5)
+                
+                # Show filename
+                tk.Label(
+                    card,
+                    text=result.chosen_image.stem,
+                    font=("Arial", 10),
+                    bg=card_color,
+                    fg="#333333",
+                ).pack()
+            except Exception:
+                tk.Label(
+                    card,
+                    text="(image)",
+                    font=("Arial", 12),
+                    bg=card_color,
+                ).pack(pady=5)
+            
+            # Status icon
+            status = "✓" if result.was_correct else "✗"
+            tk.Label(
+                card,
+                text=status,
+                font=("Arial", 24),
+                bg=card_color,
+                fg=border_color,
+            ).pack(pady=(5, 10))
+        
+        # Buttons at bottom
+        button_frame = tk.Frame(summary, bg=bg_color)
+        button_frame.pack(pady=20)
+        
+        tk.Button(
+            button_frame,
+            text="Play Again",
+            font=("Arial", 14),
+            command=lambda: self._restart_game(summary),
+        ).pack(side=tk.LEFT, padx=10)
+        
+        tk.Button(
+            button_frame,
+            text="Quit",
+            font=("Arial", 14),
+            command=self.root.quit,
+        ).pack(side=tk.LEFT, padx=10)
+        
+        # Handle window close
+        summary.protocol("WM_DELETE_WINDOW", self.root.quit)
+
+    def _restart_game(self, summary_window: tk.Toplevel) -> None:
+        """Restart the game for a new session."""
+        summary_window.destroy()
+        
+        # Show the main game window again
+        self.root.deiconify()
+        
+        # Reset game state
+        self.score = 0
+        self.rounds_played = 0
+        self.round_results.clear()
+        self.letter_queue.clear()
+        
+        # Reset progress boxes
+        for box in self.progress_boxes:
+            box.configure(bg="#dddddd")
+        
+        # Update score display
+        self.score_label.configure(text="Score: 0")
+        
+        # Start new game
+        self.start_new_round()
 
     def quit_game(self) -> None:
         """Quit the game."""
