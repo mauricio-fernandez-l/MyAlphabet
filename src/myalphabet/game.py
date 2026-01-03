@@ -179,22 +179,20 @@ class AlphabetGame:
             self._create_progress_boxes()
 
         # Center: Letter display (clickable button to replay sound)
-        # Use smaller font for compact top bar (about half of configured size)
-        compact_letter_size = max(48, self.config.letter_font_size // 2)
         self.letter_frame = tk.Frame(self.top_bar, bg=bg_color)
         self.letter_frame.grid(row=0, column=1)
 
         self.letter_button = tk.Button(
             self.letter_frame,
             text="",
-            font=("Arial", compact_letter_size, "bold"),
-            bg=bg_color,
+            font=("Arial", 48, "bold"),
+            bg="white",
             fg="#333333",
-            activebackground=bg_color,
+            activebackground="#e0e0e0",
             activeforeground="#333333",
-            bd=0,
-            highlightthickness=0,
-            padx=20,
+            bd=2,
+            relief=tk.RAISED,
+            padx=8,
             pady=0,
             command=self._on_letter_click,
             cursor="hand2",
