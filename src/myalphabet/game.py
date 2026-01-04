@@ -331,8 +331,9 @@ class AlphabetGame:
         # Get next letter from shuffled queue
         self.current_letter = self._get_next_letter()
 
-        # Update letter display
-        self.letter_button.configure(text=self.current_letter)
+        # Update letter display (show uppercase and lowercase)
+        letter_display = f"{self.current_letter} {self.current_letter.lower()}"
+        self.letter_button.configure(text=letter_display)
 
         # Play letter sound if available
         self._play_letter_sound(self.current_letter)
