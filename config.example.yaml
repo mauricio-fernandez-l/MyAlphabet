@@ -1,12 +1,21 @@
 # Configuration file for MyAlphabet game
-# Copy this file to your desired location and adjust the settings
+# Copy this file to config.yaml and adjust the settings
+
+# Custom game name (shown in window title and menu)
+game_name: "My Alphabet Game"
+
+# Icon image for window and menu (optional)
+# Can be absolute or relative path
+icon_image: ""
+icon_size: 80
 
 # Path to the folder containing letter images
 # Can be absolute or relative (relative paths are resolved from config file location)
-# Images are matched by their first letter, e.g., Lion.png -> L, Mauricio.jpg -> M
-images_folder: "data/test"
+# Images are matched by their first letter, e.g., Lion.png -> L, Apple.jpg -> A
+images_folder: "path/to/your/images"
 
 # Number of pictures to show per round (including the correct one)
+# Supports 2-8 pictures per round
 pictures_per_round: 4
 
 # Restrict the game to specific letters (optional)
@@ -23,19 +32,36 @@ window:
 
 # Game settings
 game:
+  # Maximum number of rounds per game session (0 = unlimited)
+  max_rounds: 10
+  # Delay to show letter before images appear (in milliseconds, 0 = no delay)
+  letter_display_delay_ms: 1500
   # Highlight duration in milliseconds after clicking
   highlight_duration_ms: 1500
   # Delay before next round in milliseconds (after correct answer)
-  next_round_delay_ms: 2000
+  next_round_delay_ms: 1500
   # Background color (hex or named color)
   background_color: "#f0f8ff"
-  # Font size for the letter display
-  letter_font_size: 120
-  # Show letter name (e.g., "L is for...")
+  # Font size for the letter display (uppercase and lowercase shown)
+  letter_font_size: 72
+  # Show letter hint (currently unused)
   show_letter_hint: true
 
-# Sound settings (for future use)
+# Button colors (hex colors)
+buttons:
+  play_again_color: "#2196F3"
+  play_again_hover: "#1976D2"
+  quit_color: "#FF9800"
+  quit_hover: "#F57C00"
+  menu_color: "#4CAF50"
+  menu_hover: "#388E3C"
+
+# Sound settings
 sound:
-  enabled: false
+  enabled: true
+  # Path to folder containing letter sounds (e.g., a.wav, b.wav, l.wav)
+  sounds_folder: "path/to/sounds"
+  # Sound to play on correct answer (optional)
   correct_sound: ""
+  # Sound to play on wrong answer (optional)
   wrong_sound: ""
