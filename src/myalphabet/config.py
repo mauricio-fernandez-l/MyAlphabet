@@ -25,6 +25,7 @@ DEFAULT_CONFIG = {
         "background_color": "#f0f8ff",
         "letter_font_size": 120,
         "show_lowercase": False,
+        "show_image_names": False,
         "show_letter_hint": True,
     },
     "buttons": {
@@ -237,6 +238,10 @@ class Config:
     @property
     def show_lowercase(self) -> bool:
         return self._data["game"]["show_lowercase"]
+
+    @property
+    def show_image_names(self) -> bool:
+        return self._data["game"]["show_image_names"]
 
     @property
     def show_letter_hint(self) -> bool:

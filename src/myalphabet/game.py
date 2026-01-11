@@ -121,6 +121,10 @@ class AlphabetGame:
         self.correct_index: int = -1
         self.current_images: list[Path] = []  # Images for current round
         self.image_buttons: list[ImageButton] = []
+        self.image_containers: list[tk.Frame] = (
+            []
+        )  # Container frames for buttons + labels
+        self.image_name_labels: list[tk.Frame] = []  # Label frames showing image names
         self.score: int = 0
         self.rounds_played: int = 0
         self.round_results: list[RoundResult] = []  # Track all round results
@@ -263,10 +267,12 @@ class AlphabetGame:
 
     def _create_image_buttons(self, num_images: int) -> None:
         """Create image buttons for the round."""
-        # Clear existing buttons
-        for button in self.image_buttons:
-            button.destroy()
+        # Clear existing containers, buttons, and labels
+        for container in self.image_containers:
+            container.destroy()
+        self.image_containers.clear()
         self.image_buttons.clear()
+        self.image_name_labels.clear()
 
         # Calculate optimal grid layout
         # For 1-4 images: 1 row, for 5-8 images: 2 rows
@@ -293,6 +299,10 @@ class AlphabetGame:
         available_width = frame_width - (cols + 1) * padding * 2
         available_height = frame_height - (rows + 1) * padding * 2
 
+        # Account for name labels if enabled (reserve space for label + padding)
+        label_height = 30 if self.config.show_image_names else 0
+        available_height -= rows * label_height
+
         button_width = available_width // cols
         button_height = available_height // rows
         button_size = max(80, min(button_width, button_height))
@@ -303,20 +313,32 @@ class AlphabetGame:
         for i in range(rows):
             self.images_frame.rowconfigure(i, weight=1)
 
-        # Create grid of buttons
+        # Create grid of buttons (with optional name labels)
+        show_names = self.config.show_image_names
         for i in range(num_images):
             row = i // cols
             col = i % cols
 
+            # Create container frame for button + label
+            container = tk.Frame(self.images_frame, bg=self.config.background_color)
+            container.grid(row=row, column=col, padx=padding, pady=padding)
+            self.image_containers.append(container)
+
             button = ImageButton(
-                self.images_frame,
+                container,
                 size=(button_size, button_size),
                 on_click=self._on_image_click,
                 bg="white",
             )
-            button.grid(row=row, column=col, padx=padding, pady=padding)
+            button.pack()
             button.set_enabled(True)
             self.image_buttons.append(button)
+
+            # Create name label frame (will be populated when images are loaded)
+            if show_names:
+                name_frame = tk.Frame(container, bg=self.config.background_color)
+                name_frame.pack(pady=(2, 0))
+                self.image_name_labels.append(name_frame)
 
     def _get_next_letter(self) -> str:
         """Get the next letter, reshuffling when all letters have been used."""
@@ -356,7 +378,7 @@ class AlphabetGame:
         # Create buttons but keep them hidden initially if delay is set
         self._create_image_buttons(len(self.current_images))
 
-        # Load images into buttons
+        # Load images into buttons and populate name labels
         for i, (button, image_path) in enumerate(
             zip(self.image_buttons, self.current_images)
         ):
@@ -364,18 +386,56 @@ class AlphabetGame:
             button.clear_highlight()
             button.set_enabled(False)  # Disabled until shown
 
+            # Populate name label if enabled
+            if self.config.show_image_names and i < len(self.image_name_labels):
+                self._set_image_name_label(self.image_name_labels[i], image_path.stem)
+
         self.rounds_played += 1
 
         # Show images after delay, or immediately if no delay
         if self.config.letter_display_delay_ms > 0:
-            # Hide image buttons initially
-            for button in self.image_buttons:
-                button.pack_forget() if button.winfo_manager() == "pack" else None
-                button.grid_remove()
+            # Hide image containers initially
+            for container in self.image_containers:
+                container.grid_remove()
             # Show after delay
             self.root.after(self.config.letter_display_delay_ms, self._show_images)
         else:
             self._show_images()
+
+    def _set_image_name_label(self, name_frame: tk.Frame, name: str) -> None:
+        """Set the image name label with the first letter bold."""
+        # Clear existing content
+        for widget in name_frame.winfo_children():
+            widget.destroy()
+
+        if not name:
+            return
+
+        bg_color = self.config.background_color
+        font_size = 12
+
+        # First letter (bold)
+        first_letter = name[0]
+        first_label = tk.Label(
+            name_frame,
+            text=first_letter,
+            font=("Arial", font_size, "bold"),
+            bg=bg_color,
+            fg="#333333",
+        )
+        first_label.pack(side=tk.LEFT)
+
+        # Rest of the name (normal)
+        if len(name) > 1:
+            rest = name[1:]
+            rest_label = tk.Label(
+                name_frame,
+                text=rest,
+                font=("Arial", font_size),
+                bg=bg_color,
+                fg="#333333",
+            )
+            rest_label.pack(side=tk.LEFT)
 
     def _play_letter_sound(self, letter: str) -> None:
         """Play the sound file for the given letter if available."""
@@ -414,12 +474,15 @@ class AlphabetGame:
 
     def _show_images(self) -> None:
         """Show the image buttons and enable them."""
-        # Re-show all buttons in grid
-        cols = min(len(self.image_buttons), 4)
-        for i, button in enumerate(self.image_buttons):
+        # Re-show all containers in grid (buttons are inside containers now)
+        cols = min(len(self.image_containers), 4)
+        for i, container in enumerate(self.image_containers):
             row = i // cols
             col = i % cols
-            button.grid(row=row, column=col, padx=10, pady=10)
+            container.grid(row=row, column=col, padx=10, pady=10)
+
+        # Enable all buttons
+        for button in self.image_buttons:
             button.set_enabled(True)
 
     def _on_image_click(self, button: ImageButton) -> None:

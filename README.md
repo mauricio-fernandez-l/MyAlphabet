@@ -107,6 +107,7 @@ game:
   letter_display_delay_ms: 1500  # Show letter before images
   letter_font_size: 72        # Size of letter display
   show_lowercase: false       # Show "A a" instead of just "A"
+  show_image_names: true     # Show names below pictures (first letter bold)
   background_color: "#f0f8ff"
 
 # Sound settings

@@ -46,6 +46,8 @@ game:
   letter_font_size: 72
   # Show lowercase letter alongside uppercase (e.g., "A a" instead of "A")
   show_lowercase: false
+  # Show image file names below pictures (first letter bold, e.g., "Apple")
+  show_image_names: false
   # Show letter hint (currently unused)
   show_letter_hint: true
 
