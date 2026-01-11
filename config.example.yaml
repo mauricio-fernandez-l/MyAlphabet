@@ -42,8 +42,10 @@ game:
   next_round_delay_ms: 1500
   # Background color (hex or named color)
   background_color: "#f0f8ff"
-  # Font size for the letter display (uppercase and lowercase shown)
+  # Font size for the letter display
   letter_font_size: 72
+  # Show lowercase letter alongside uppercase (e.g., "A a" instead of "A")
+  show_lowercase: false
   # Show letter hint (currently unused)
   show_letter_hint: true
 

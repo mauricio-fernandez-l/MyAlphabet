@@ -106,6 +106,7 @@ game:
   max_rounds: 10              # 0 = unlimited
   letter_display_delay_ms: 1500  # Show letter before images
   letter_font_size: 72        # Size of letter display
+  show_lowercase: false       # Show "A a" instead of just "A"
   background_color: "#f0f8ff"
 
 # Sound settings

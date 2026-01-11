@@ -24,6 +24,7 @@ DEFAULT_CONFIG = {
         "next_round_delay_ms": 2000,
         "background_color": "#f0f8ff",
         "letter_font_size": 120,
+        "show_lowercase": False,
         "show_letter_hint": True,
     },
     "buttons": {
@@ -232,6 +233,10 @@ class Config:
     @property
     def letter_font_size(self) -> int:
         return self._data["game"]["letter_font_size"]
+
+    @property
+    def show_lowercase(self) -> bool:
+        return self._data["game"]["show_lowercase"]
 
     @property
     def show_letter_hint(self) -> bool:
