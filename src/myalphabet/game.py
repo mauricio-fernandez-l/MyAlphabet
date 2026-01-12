@@ -403,7 +403,7 @@ class AlphabetGame:
             self._show_images()
 
     def _set_image_name_label(self, name_frame: tk.Frame, name: str) -> None:
-        """Set the image name label with the first letter bold."""
+        """Set the image name label with the first letter bold and bigger."""
         # Clear existing content
         for widget in name_frame.winfo_children():
             widget.destroy()
@@ -413,19 +413,21 @@ class AlphabetGame:
 
         bg_color = self.config.background_color
         font_size = 12
+        first_letter_size = 20  # Slightly bigger for the first letter
 
-        # First letter (bold)
-        first_letter = name[0]
+        # First letter (bold and bigger)
+        first_letter = name[0].upper()
         first_label = tk.Label(
             name_frame,
             text=first_letter,
-            font=("Arial", font_size, "bold"),
+            font=("Arial", first_letter_size, "bold"),
             bg=bg_color,
             fg="#333333",
+            padx=0,
         )
-        first_label.pack(side=tk.LEFT)
+        first_label.pack(side=tk.LEFT, padx=0)
 
-        # Rest of the name (normal)
+        # Rest of the name (normal, no space)
         if len(name) > 1:
             rest = name[1:]
             rest_label = tk.Label(
@@ -434,8 +436,9 @@ class AlphabetGame:
                 font=("Arial", font_size),
                 bg=bg_color,
                 fg="#333333",
+                padx=0,
             )
-            rest_label.pack(side=tk.LEFT)
+            rest_label.pack(side=tk.LEFT, padx=0)
 
     def _play_letter_sound(self, letter: str) -> None:
         """Play the sound file for the given letter if available."""
