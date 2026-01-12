@@ -583,11 +583,18 @@ class AlphabetGame:
         )
         results_frame = tk.Frame(canvas, bg=bg_color)
 
-        results_frame.bind(
-            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
 
-        canvas.create_window((0, 0), window=results_frame, anchor="nw")
+        def on_canvas_configure(event):
+            # Center the results frame horizontally in the canvas
+            canvas_width = event.width
+            canvas.itemconfig(canvas_window, width=canvas_width)
+
+        results_frame.bind("<Configure>", on_frame_configure)
+        canvas.bind("<Configure>", on_canvas_configure)
+
+        canvas_window = canvas.create_window((0, 0), window=results_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20)
@@ -595,6 +602,10 @@ class AlphabetGame:
 
         # Store photo references to prevent garbage collection
         self._summary_photos: list[ImageTk.PhotoImage] = []
+
+        # Configure columns to center content
+        for c in range(cols):
+            results_frame.columnconfigure(c, weight=1)
 
         # Display each round result
         for i, result in enumerate(self.round_results):
