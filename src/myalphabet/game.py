@@ -943,7 +943,12 @@ class LettersView:
             col = i % cols
 
             # Card frame
-            card = tk.Frame(images_frame, bg="white", highlightthickness=2, highlightbackground="#cccccc")
+            card = tk.Frame(
+                images_frame,
+                bg="white",
+                highlightthickness=2,
+                highlightbackground="#cccccc",
+            )
             card.grid(row=row, column=col, padx=10, pady=10)
 
             # Load and display image
