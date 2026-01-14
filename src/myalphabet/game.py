@@ -11,7 +11,7 @@ from typing import Callable
 from PIL import Image, ImageTk
 
 from .config import Config
-from .images import get_available_letters, select_round_images
+from .images import get_available_letters, get_images_for_letter, select_round_images
 
 
 @dataclass
@@ -742,15 +742,298 @@ class AlphabetGame:
         self.main_frame.destroy()
 
 
+class LettersView:
+    """Letters browsing mode - view all letters and their images."""
+
+    def __init__(
+        self,
+        config: Config,
+        root: tk.Tk,
+        images_folder: Path,
+        on_menu_callback: Callable[[], None],
+    ):
+        self.config = config
+        self.root = root
+        self.images_folder = images_folder
+        self.on_menu_callback = on_menu_callback
+        self.photo_refs: list[ImageTk.PhotoImage] = []  # Prevent garbage collection
+
+        self.bg_color = config.background_color
+
+        # Main frame
+        self.main_frame = tk.Frame(self.root, bg=self.bg_color)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Get available letters
+        self.available_letters = sorted(get_available_letters(images_folder))
+
+        # Show letters grid
+        self._show_letters_grid()
+
+    def _show_letters_grid(self) -> None:
+        """Show grid of all available letters."""
+        # Clear main frame
+        for widget in self.main_frame.winfo_children():
+            widget.destroy()
+        self.photo_refs.clear()
+
+        # Header
+        header_frame = tk.Frame(self.main_frame, bg=self.bg_color)
+        header_frame.pack(pady=20)
+
+        tk.Label(
+            header_frame,
+            text="🔤 Choose a Letter 🔤",
+            font=("Arial", 32, "bold"),
+            bg=self.bg_color,
+            fg="#333333",
+        ).pack()
+
+        # Scrollable letters area
+        canvas = tk.Canvas(self.main_frame, bg=self.bg_color, highlightthickness=0)
+        scrollbar = tk.Scrollbar(
+            self.main_frame, orient="vertical", command=canvas.yview
+        )
+        letters_frame = tk.Frame(canvas, bg=self.bg_color)
+
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        letters_frame.bind("<Configure>", on_frame_configure)
+        canvas.bind("<Configure>", on_canvas_configure)
+
+        canvas_window = canvas.create_window((0, 0), window=letters_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Create letter buttons in a grid
+        cols = 6
+        for i, letter in enumerate(self.available_letters):
+            row = i // cols
+            col = i % cols
+
+            # Count images for this letter
+            images = get_images_for_letter(self.images_folder, letter)
+            count = len(images)
+
+            btn = tk.Button(
+                letters_frame,
+                text=f"{letter}\n({count})",
+                font=("Arial", 28, "bold"),
+                width=4,
+                height=2,
+                bg=self.config.letters_color,
+                fg="white",
+                activebackground=self.config.letters_hover,
+                activeforeground="white",
+                command=lambda l=letter: self._show_letter_images(l),
+                cursor="hand2",
+            )
+            btn.grid(row=row, column=col, padx=10, pady=10)
+
+        # Configure columns for centering
+        for c in range(cols):
+            letters_frame.columnconfigure(c, weight=1)
+
+        # Menu button at bottom
+        button_frame = tk.Frame(self.main_frame, bg=self.bg_color)
+        button_frame.pack(pady=20, side=tk.BOTTOM)
+
+        tk.Button(
+            button_frame,
+            text="Main Menu",
+            font=("Arial", 16),
+            command=self._go_to_menu,
+            bg=self.config.menu_color,
+            fg="white",
+            activebackground=self.config.menu_hover,
+            activeforeground="white",
+            width=14,
+            height=2,
+        ).pack()
+
+    def _show_letter_images(self, letter: str) -> None:
+        """Show all images for a specific letter."""
+        # Play letter sound
+        self._play_letter_sound(letter)
+
+        # Clear main frame
+        for widget in self.main_frame.winfo_children():
+            widget.destroy()
+        self.photo_refs.clear()
+
+        # Header with letter
+        header_frame = tk.Frame(self.main_frame, bg=self.bg_color)
+        header_frame.pack(pady=20)
+
+        tk.Label(
+            header_frame,
+            text=f"{letter} {letter.lower()}",
+            font=("Arial", 48, "bold"),
+            bg=self.bg_color,
+            fg=self.config.letters_color,
+        ).pack()
+
+        # Get images for this letter
+        images = get_images_for_letter(self.images_folder, letter)
+
+        # Scrollable images area
+        canvas = tk.Canvas(self.main_frame, bg=self.bg_color, highlightthickness=0)
+        scrollbar = tk.Scrollbar(
+            self.main_frame, orient="vertical", command=canvas.yview
+        )
+        images_frame = tk.Frame(canvas, bg=self.bg_color)
+
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        images_frame.bind("<Configure>", on_frame_configure)
+        canvas.bind("<Configure>", on_canvas_configure)
+
+        canvas_window = canvas.create_window((0, 0), window=images_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Buttons at bottom (create first so they're always visible)
+        button_frame = tk.Frame(self.main_frame, bg=self.bg_color)
+        button_frame.pack(pady=20, side=tk.BOTTOM)
+
+        tk.Button(
+            button_frame,
+            text="Back to Letters",
+            font=("Arial", 16),
+            command=self._show_letters_grid,
+            bg=self.config.letters_color,
+            fg="white",
+            activebackground=self.config.letters_hover,
+            activeforeground="white",
+            width=14,
+            height=2,
+        ).pack(side=tk.LEFT, padx=10)
+
+        tk.Button(
+            button_frame,
+            text="Main Menu",
+            font=("Arial", 16),
+            command=self._go_to_menu,
+            bg=self.config.menu_color,
+            fg="white",
+            activebackground=self.config.menu_hover,
+            activeforeground="white",
+            width=14,
+            height=2,
+        ).pack(side=tk.LEFT, padx=10)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Display images in a grid
+        cols = min(4, len(images))
+        image_size = 180
+
+        for i, image_path in enumerate(images):
+            row = i // cols
+            col = i % cols
+
+            # Card frame
+            card = tk.Frame(images_frame, bg="white", highlightthickness=2, highlightbackground="#cccccc")
+            card.grid(row=row, column=col, padx=10, pady=10)
+
+            # Load and display image
+            try:
+                img = Image.open(image_path)
+                img.thumbnail((image_size, image_size), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                self.photo_refs.append(photo)
+
+                img_label = tk.Label(card, image=photo, bg="white")
+                img_label.pack(padx=5, pady=5)
+
+                # Image name with bold first letter
+                name_frame = tk.Frame(card, bg="white")
+                name_frame.pack(pady=(0, 5))
+
+                name = image_path.stem
+                if name:
+                    # First letter bold and bigger
+                    first_label = tk.Label(
+                        name_frame,
+                        text=name[0].upper(),
+                        font=("Arial", 14, "bold"),
+                        bg="white",
+                        fg="#333333",
+                    )
+                    first_label.pack(side=tk.LEFT)
+
+                    if len(name) > 1:
+                        rest_label = tk.Label(
+                            name_frame,
+                            text=name[1:],
+                            font=("Arial", 12),
+                            bg="white",
+                            fg="#333333",
+                        )
+                        rest_label.pack(side=tk.LEFT)
+            except Exception:
+                tk.Label(card, text="(error)", bg="white").pack(padx=5, pady=5)
+
+        # Configure columns for centering
+        for c in range(cols):
+            images_frame.columnconfigure(c, weight=1)
+
+    def _play_letter_sound(self, letter: str) -> None:
+        """Play the sound file for the given letter if available."""
+        if not self.config.sound_enabled:
+            return
+
+        sounds_folder = self.config.sounds_folder
+        if not sounds_folder or not sounds_folder.exists():
+            return
+
+        # Look for sound file (case-insensitive)
+        letter_lower = letter.lower()
+        for sound_file in sounds_folder.iterdir():
+            if sound_file.suffix.lower() == ".wav":
+                if sound_file.stem.lower() == letter_lower:
+                    try:
+                        winsound.PlaySound(
+                            str(sound_file), winsound.SND_FILENAME | winsound.SND_ASYNC
+                        )
+                    except Exception:
+                        pass
+                    break
+
+    def _go_to_menu(self) -> None:
+        """Return to the main menu."""
+        self.main_frame.destroy()
+        self.on_menu_callback()
+
+    def destroy(self) -> None:
+        """Clean up the letters view."""
+        self.main_frame.destroy()
+
+
 class MenuView:
     """Menu view for game settings before starting."""
 
     def __init__(
-        self, config: Config, root: tk.Tk, on_start_callback: Callable[[dict], None]
+        self,
+        config: Config,
+        root: tk.Tk,
+        on_start_callback: Callable[[dict], None],
+        on_letters_callback: Callable[[dict], None] | None = None,
     ):
         self.config = config
         self.root = root
         self.on_start_callback = on_start_callback
+        self.on_letters_callback = on_letters_callback
         self.icon_photos = []  # Store icon photos to prevent garbage collection
 
         bg_color = config.background_color
@@ -946,6 +1229,19 @@ class MenuView:
 
         tk.Button(
             button_frame,
+            text="Letters",
+            font=("Arial", 20),
+            command=self._start_letters,
+            bg=config.letters_color,
+            fg="white",
+            activebackground=config.letters_hover,
+            activeforeground="white",
+            width=14,
+            height=2,
+        ).pack(side=tk.LEFT, padx=15)
+
+        tk.Button(
+            button_frame,
             text="Quit",
             font=("Arial", 20),
             command=self._quit,
@@ -956,6 +1252,36 @@ class MenuView:
             width=14,
             height=2,
         ).pack(side=tk.LEFT, padx=15)
+
+    def _start_letters(self) -> None:
+        """Start the letters browsing mode."""
+        if not self.on_letters_callback:
+            return
+
+        folder = Path(self.folder_var.get())
+        if not folder.exists():
+            messagebox.showerror("Error", f"Folder does not exist:\n{folder}")
+            return
+        if not folder.is_dir():
+            messagebox.showerror("Error", f"Not a valid folder:\n{folder}")
+            return
+
+        # Check for images
+        letters = get_available_letters(folder)
+        if not letters:
+            messagebox.showerror(
+                "Error",
+                f"No valid images found in:\n{folder}\n\n"
+                "Images should start with a letter (e.g., Apple.png, Lion.jpg)",
+            )
+            return
+
+        settings = {
+            "images_folder": folder,
+        }
+        # Destroy menu view and call letters callback
+        self.main_container.destroy()
+        self.on_letters_callback(settings)
 
     def _adjust_value(
         self, var: tk.IntVar, delta: int, min_val: int, max_val: int
@@ -1052,7 +1378,9 @@ class GameApp:
 
     def _show_menu(self) -> None:
         """Show the menu view."""
-        self.current_view = MenuView(self.config, self.root, self._start_game)
+        self.current_view = MenuView(
+            self.config, self.root, self._start_game, self._start_letters
+        )
 
     def _start_game(self, settings: dict) -> None:
         """Start the game with given settings."""
@@ -1069,6 +1397,22 @@ class GameApp:
 
         # Create game view
         self.current_view = AlphabetGame(self.config, self.root, self._show_menu)
+
+    def _start_letters(self, settings: dict) -> None:
+        """Start the letters browsing mode."""
+        # Update config with user settings
+        self.config._data["images_folder"] = str(settings["images_folder"])
+        # Update config_dir for proper path resolution
+        self.config._config_dir = (
+            settings["images_folder"].parent
+            if not settings["images_folder"].is_absolute()
+            else None
+        )
+
+        # Create letters view
+        self.current_view = LettersView(
+            self.config, self.root, settings["images_folder"], self._show_menu
+        )
 
     def run(self) -> None:
         """Run the application."""

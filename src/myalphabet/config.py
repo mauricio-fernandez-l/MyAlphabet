@@ -35,6 +35,8 @@ DEFAULT_CONFIG = {
         "quit_hover": "#F57C00",
         "menu_color": "#4CAF50",
         "menu_hover": "#388E3C",
+        "letters_color": "#9C27B0",
+        "letters_hover": "#7B1FA2",
     },
     "sound": {
         "enabled": True,
@@ -270,6 +272,14 @@ class Config:
     @property
     def menu_hover(self) -> str:
         return self._data["buttons"]["menu_hover"]
+
+    @property
+    def letters_color(self) -> str:
+        return self._data["buttons"]["letters_color"]
+
+    @property
+    def letters_hover(self) -> str:
+        return self._data["buttons"]["letters_hover"]
 
     @property
     def sound_enabled(self) -> bool:
