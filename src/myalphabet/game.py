@@ -975,16 +975,19 @@ class LetterQuizGame:
                 rest_label.pack(side=tk.LEFT)
 
     def _create_letter_buttons(self) -> None:
-        """Create letter choice buttons (1 correct + 2 wrong)."""
+        """Create letter choice buttons based on pictures_per_round setting."""
         # Clear existing buttons
         for btn in self.letter_buttons:
             btn.destroy()
         self.letter_buttons.clear()
 
+        # Number of choices from config (same as pictures_per_round)
+        num_choices = self.config.pictures_per_round
+
         # Get wrong letters (excluding correct one)
         wrong_letters = [l for l in self.available_letters if l != self.current_letter]
         random.shuffle(wrong_letters)
-        wrong_choices = wrong_letters[:2]
+        wrong_choices = wrong_letters[: num_choices - 1]
 
         # Combine and shuffle
         choices = [self.current_letter] + wrong_choices
@@ -1831,10 +1834,11 @@ class MenuView:
             )
             return
 
-        if len(letters) < 3:
+        num_choices = self.pictures_var.get()
+        if len(letters) < num_choices:
             messagebox.showerror(
                 "Error",
-                f"Need at least 3 different letters for Quiz mode.\n"
+                f"Need at least {num_choices} different letters for Quiz mode.\n"
                 f"Found only: {', '.join(sorted(letters))}",
             )
             return
@@ -1842,6 +1846,7 @@ class MenuView:
         settings = {
             "images_folder": folder,
             "max_rounds": self.rounds_var.get(),
+            "num_choices": num_choices,
         }
         # Destroy menu view and call quiz callback
         self.main_container.destroy()
@@ -1987,6 +1992,7 @@ class GameApp:
         # Update config with user settings
         self.config._data["images_folder"] = str(settings["images_folder"])
         self.config._data["game"]["max_rounds"] = settings["max_rounds"]
+        self.config._data["pictures_per_round"] = settings["num_choices"]
         # Update config_dir for proper path resolution
         self.config._config_dir = (
             settings["images_folder"].parent
