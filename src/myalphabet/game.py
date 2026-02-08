@@ -15,6 +15,7 @@ from PIL import Image, ImageTk
 # Try to import VLC for integrated video playback
 try:
     import vlc
+
     HAS_VLC = True
 except ImportError:
     HAS_VLC = False
@@ -557,41 +558,41 @@ class AlphabetGame:
 
     def _get_reward_video(self) -> Path | None:
         """Check if player is eligible for video reward and return video path.
-        
+
         Returns:
             Path to video file if eligible, None otherwise.
         """
         # Check if video reward is enabled
         if self.config.min_rounds_video <= 0:
             return None
-        
+
         # Check if videos folder exists and has videos
         videos_folder = self.config.videos_folder
         if not videos_folder or not videos_folder.exists():
             return None
-        
+
         # Get list of video files
-        video_extensions = {'.mp4', '.avi', '.mkv', '.mov', '.wmv', '.webm'}
+        video_extensions = {".mp4", ".avi", ".mkv", ".mov", ".wmv", ".webm"}
         videos = [
-            f for f in videos_folder.iterdir()
+            f
+            for f in videos_folder.iterdir()
             if f.is_file() and f.suffix.lower() in video_extensions
         ]
         if not videos:
             return None
-        
+
         # Check if player played enough rounds
         rounds_played = len(self.round_results)
         if rounds_played < self.config.min_rounds_video:
             return None
-        
+
         # Check if player had at most max_wrong_answers wrong
         wrong_answers = rounds_played - self.score
         if wrong_answers > self.config.max_wrong_answers:
             return None
-        
+
         # Player is eligible! Return a random video
         return random.choice(videos)
-
 
     def _show_summary(self) -> None:
         """Show the game summary with results and optional video side by side."""
@@ -603,7 +604,7 @@ class AlphabetGame:
         self.image_buttons.clear()
 
         bg_color = self.config.background_color
-        
+
         # Check for video reward
         video_path = self._get_reward_video()
         has_video = video_path and HAS_VLC
@@ -638,10 +639,10 @@ class AlphabetGame:
             content_frame.columnconfigure(0, weight=1)
             content_frame.columnconfigure(1, weight=1)
             content_frame.rowconfigure(0, weight=1)
-            
+
             gallery_frame = tk.Frame(content_frame, bg=bg_color)
             gallery_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
-            
+
             video_frame = tk.Frame(content_frame, bg="black")
             video_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         else:
@@ -656,7 +657,7 @@ class AlphabetGame:
         # Display results in 2 rows x 5 columns max
         cols = 5
         rows = 2
-        
+
         # Calculate image size based on available space
         img_size = 100 if has_video else 120
 
@@ -666,7 +667,7 @@ class AlphabetGame:
         for i, result in enumerate(self.round_results):
             row = i // cols
             col = i % cols
-            
+
             if row >= rows:
                 break  # Max 10 results displayed
 
@@ -713,7 +714,9 @@ class AlphabetGame:
                     fg="#333333",
                 ).pack(pady=(0, 5))
             except Exception:
-                tk.Label(card, text="(image)", font=("Arial", 10), bg=card_color).pack(pady=5)
+                tk.Label(card, text="(image)", font=("Arial", 10), bg=card_color).pack(
+                    pady=5
+                )
 
         # Start video playback if eligible
         if has_video and video_frame:
@@ -764,7 +767,7 @@ class AlphabetGame:
 
     def _start_video_in_frame(self, video_path: Path, video_frame: tk.Frame) -> None:
         """Start video playback in the given frame.
-        
+
         Args:
             video_path: Path to the video file.
             video_frame: Frame to embed the video in.
@@ -772,20 +775,20 @@ class AlphabetGame:
         # Create VLC instance and player
         self._vlc_instance = vlc.Instance()
         self._vlc_player = self._vlc_instance.media_player_new()
-        
+
         # Get window handle for embedding
         video_frame.update()
         handle = video_frame.winfo_id()
         self._vlc_player.set_hwnd(handle)
-        
+
         # Load and play media
         media = self._vlc_instance.media_new(str(video_path))
         self._vlc_player.set_media(media)
         self._vlc_player.play()
-        
+
         # Check for video end and loop or stop
         def check_video_end():
-            if hasattr(self, '_vlc_player') and self._vlc_player:
+            if hasattr(self, "_vlc_player") and self._vlc_player:
                 state = self._vlc_player.get_state()
                 if state == vlc.State.Ended:
                     # Replay the video
@@ -793,16 +796,16 @@ class AlphabetGame:
                     self._vlc_player.play()
                 elif state != vlc.State.Stopped:
                     self.root.after(500, check_video_end)
-        
+
         self.root.after(500, check_video_end)
 
     def _cleanup_video(self) -> None:
         """Clean up VLC resources."""
-        if hasattr(self, '_vlc_player') and self._vlc_player:
+        if hasattr(self, "_vlc_player") and self._vlc_player:
             self._vlc_player.stop()
             self._vlc_player.release()
             self._vlc_player = None
-        if hasattr(self, '_vlc_instance') and self._vlc_instance:
+        if hasattr(self, "_vlc_instance") and self._vlc_instance:
             self._vlc_instance.release()
             self._vlc_instance = None
 
@@ -1174,38 +1177,39 @@ class LetterQuizGame:
 
     def _get_reward_video(self) -> Path | None:
         """Check if player is eligible for video reward and return video path.
-        
+
         Returns:
             Path to video file if eligible, None otherwise.
         """
         # Check if video reward is enabled
         if self.config.min_rounds_video <= 0:
             return None
-        
+
         # Check if videos folder exists and has videos
         videos_folder = self.config.videos_folder
         if not videos_folder or not videos_folder.exists():
             return None
-        
+
         # Get list of video files
-        video_extensions = {'.mp4', '.avi', '.mkv', '.mov', '.wmv', '.webm'}
+        video_extensions = {".mp4", ".avi", ".mkv", ".mov", ".wmv", ".webm"}
         videos = [
-            f for f in videos_folder.iterdir()
+            f
+            for f in videos_folder.iterdir()
             if f.is_file() and f.suffix.lower() in video_extensions
         ]
         if not videos:
             return None
-        
+
         # Check if player played enough rounds
         rounds_played = len(self.round_results)
         if rounds_played < self.config.min_rounds_video:
             return None
-        
+
         # Check if player had at most max_wrong_answers wrong
         wrong_answers = rounds_played - self.score
         if wrong_answers > self.config.max_wrong_answers:
             return None
-        
+
         # Player is eligible! Return a random video
         return random.choice(videos)
 
@@ -1220,7 +1224,7 @@ class LetterQuizGame:
         self._summary_photos.clear()
 
         bg_color = self.config.background_color
-        
+
         # Check for video reward
         video_path = self._get_reward_video()
         has_video = video_path and HAS_VLC
@@ -1255,10 +1259,10 @@ class LetterQuizGame:
             content_frame.columnconfigure(0, weight=1)
             content_frame.columnconfigure(1, weight=1)
             content_frame.rowconfigure(0, weight=1)
-            
+
             gallery_frame = tk.Frame(content_frame, bg=bg_color)
             gallery_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
-            
+
             video_frame = tk.Frame(content_frame, bg="black")
             video_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         else:
@@ -1270,7 +1274,7 @@ class LetterQuizGame:
         # Display results in 2 rows x 5 columns max
         cols = 5
         rows = 2
-        
+
         # Calculate image size based on available space
         img_size = 100 if has_video else 120
 
@@ -1280,7 +1284,7 @@ class LetterQuizGame:
         for i, result in enumerate(self.round_results):
             row = i // cols
             col = i % cols
-            
+
             if row >= rows:
                 break  # Max 10 results displayed
 
@@ -1334,7 +1338,9 @@ class LetterQuizGame:
                     fg="#333333",
                 ).pack(pady=(0, 5))
             except Exception:
-                tk.Label(card, text="(image)", font=("Arial", 10), bg=card_color).pack(pady=5)
+                tk.Label(card, text="(image)", font=("Arial", 10), bg=card_color).pack(
+                    pady=5
+                )
 
         # Start video playback if eligible
         if has_video and video_frame:
@@ -1385,7 +1391,7 @@ class LetterQuizGame:
 
     def _start_video_in_frame(self, video_path: Path, video_frame: tk.Frame) -> None:
         """Start video playback in the given frame.
-        
+
         Args:
             video_path: Path to the video file.
             video_frame: Frame to embed the video in.
@@ -1393,20 +1399,20 @@ class LetterQuizGame:
         # Create VLC instance and player
         self._vlc_instance = vlc.Instance()
         self._vlc_player = self._vlc_instance.media_player_new()
-        
+
         # Get window handle for embedding
         video_frame.update()
         handle = video_frame.winfo_id()
         self._vlc_player.set_hwnd(handle)
-        
+
         # Load and play media
         media = self._vlc_instance.media_new(str(video_path))
         self._vlc_player.set_media(media)
         self._vlc_player.play()
-        
+
         # Check for video end and loop
         def check_video_end():
-            if hasattr(self, '_vlc_player') and self._vlc_player:
+            if hasattr(self, "_vlc_player") and self._vlc_player:
                 state = self._vlc_player.get_state()
                 if state == vlc.State.Ended:
                     # Replay the video
@@ -1414,16 +1420,16 @@ class LetterQuizGame:
                     self._vlc_player.play()
                 elif state != vlc.State.Stopped:
                     self.root.after(500, check_video_end)
-        
+
         self.root.after(500, check_video_end)
 
     def _cleanup_video(self) -> None:
         """Clean up VLC resources."""
-        if hasattr(self, '_vlc_player') and self._vlc_player:
+        if hasattr(self, "_vlc_player") and self._vlc_player:
             self._vlc_player.stop()
             self._vlc_player.release()
             self._vlc_player = None
-        if hasattr(self, '_vlc_instance') and self._vlc_instance:
+        if hasattr(self, "_vlc_instance") and self._vlc_instance:
             self._vlc_instance.release()
             self._vlc_instance = None
 
