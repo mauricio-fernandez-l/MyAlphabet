@@ -190,25 +190,29 @@ class AlphabetGame:
 
         self.menu_button = tk.Button(
             self.top_right_frame,
-            text="Menu",
-            font=("Arial", 12),
+            text="🏠",
+            font=("Segoe UI Emoji", 36),
             command=self._go_to_menu,
             bg=self.config.menu_color,
             fg="white",
             activebackground=self.config.menu_hover,
             activeforeground="white",
+            padx=10,
+            pady=5,
         )
-        self.menu_button.pack(side=tk.LEFT, padx=(0, 5))
+        self.menu_button.pack(side=tk.LEFT, padx=(0, 10))
 
         self.quit_button = tk.Button(
             self.top_right_frame,
-            text="Quit",
-            font=("Arial", 12),
+            text="❌",
+            font=("Segoe UI Emoji", 36),
             command=self.quit_game,
             bg=self.config.quit_color,
             fg="white",
             activebackground=self.config.quit_hover,
             activeforeground="white",
+            padx=10,
+            pady=5,
         )
         self.quit_button.pack(side=tk.LEFT)
 
@@ -667,35 +671,41 @@ class AlphabetGame:
 
         tk.Button(
             button_frame,
-            text="Play Again",
-            font=("Arial", 14),
+            text="🔄",
+            font=("Segoe UI Emoji", 36),
             command=self._restart_game,
             bg=self.config.play_again_color,
             fg="white",
             activebackground=self.config.play_again_hover,
             activeforeground="white",
+            padx=20,
+            pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
         tk.Button(
             button_frame,
-            text="Main Menu",
-            font=("Arial", 14),
+            text="🏠",
+            font=("Segoe UI Emoji", 36),
             command=self._go_to_menu,
             bg=self.config.menu_color,
             fg="white",
             activebackground=self.config.menu_hover,
             activeforeground="white",
+            padx=20,
+            pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
         tk.Button(
             button_frame,
-            text="Quit",
-            font=("Arial", 14),
+            text="❌",
+            font=("Segoe UI Emoji", 36),
             command=self.root.quit,
             bg=self.config.quit_color,
             fg="white",
             activebackground=self.config.quit_hover,
             activeforeground="white",
+            padx=20,
+            pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
     def _go_to_menu(self) -> None:
@@ -811,29 +821,29 @@ class LetterQuizGame:
 
         tk.Button(
             buttons_frame,
-            text="Menu",
-            font=("Arial", 10),
+            text="🏠",
+            font=("Segoe UI Emoji", 36),
             command=self._go_to_menu,
             bg=self.config.menu_color,
             fg="white",
             activebackground=self.config.menu_hover,
             activeforeground="white",
-            padx=8,
-            pady=2,
-        ).pack(side=tk.LEFT, padx=2)
+            padx=10,
+            pady=5,
+        ).pack(side=tk.LEFT, padx=(0, 10))
 
         tk.Button(
             buttons_frame,
-            text="Quit",
-            font=("Arial", 10),
+            text="❌",
+            font=("Segoe UI Emoji", 36),
             command=self._quit_game,
             bg=self.config.quit_color,
             fg="white",
             activebackground=self.config.quit_hover,
             activeforeground="white",
-            padx=8,
-            pady=2,
-        ).pack(side=tk.LEFT, padx=2)
+            padx=10,
+            pady=5,
+        ).pack(side=tk.LEFT)
 
         # Image display area
         self.image_frame = tk.Frame(self.main_frame, bg=bg_color)
@@ -1182,35 +1192,41 @@ class LetterQuizGame:
 
         tk.Button(
             button_frame,
-            text="Play Again",
-            font=("Arial", 14),
+            text="🔄",
+            font=("Segoe UI Emoji", 36),
             command=self._restart_game,
             bg=self.config.play_again_color,
             fg="white",
             activebackground=self.config.play_again_hover,
             activeforeground="white",
+            padx=20,
+            pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
         tk.Button(
             button_frame,
-            text="Main Menu",
-            font=("Arial", 14),
+            text="🏠",
+            font=("Segoe UI Emoji", 36),
             command=self._go_to_menu,
             bg=self.config.menu_color,
             fg="white",
             activebackground=self.config.menu_hover,
             activeforeground="white",
+            padx=20,
+            pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
         tk.Button(
             button_frame,
-            text="Quit",
-            font=("Arial", 14),
+            text="❌",
+            font=("Segoe UI Emoji", 36),
             command=self._quit_game,
             bg=self.config.quit_color,
             fg="white",
             activebackground=self.config.quit_hover,
             activeforeground="white",
+            padx=20,
+            pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
     def _restart_game(self) -> None:
@@ -1354,15 +1370,15 @@ class LettersView:
 
         tk.Button(
             button_frame,
-            text="Main Menu",
-            font=("Arial", 16),
+            text="🏠",
+            font=("Segoe UI Emoji", 36),
             command=self._go_to_menu,
             bg=self.config.menu_color,
             fg="white",
             activebackground=self.config.menu_hover,
             activeforeground="white",
-            width=14,
-            height=2,
+            padx=20,
+            pady=10,
         ).pack()
 
     def _show_letter_images(self, letter: str) -> None:
@@ -1415,28 +1431,28 @@ class LettersView:
 
         tk.Button(
             button_frame,
-            text="Back to Letters",
-            font=("Arial", 16),
+            text="⬅️ 🔤",
+            font=("Segoe UI Emoji", 36),
             command=self._show_letters_grid,
             bg=self.config.letters_color,
             fg="white",
             activebackground=self.config.letters_hover,
             activeforeground="white",
-            width=14,
-            height=2,
+            padx=20,
+            pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
         tk.Button(
             button_frame,
-            text="Main Menu",
-            font=("Arial", 16),
+            text="🏠",
+            font=("Segoe UI Emoji", 36),
             command=self._go_to_menu,
             bg=self.config.menu_color,
             fg="white",
             activebackground=self.config.menu_hover,
             activeforeground="white",
-            width=14,
-            height=2,
+            padx=20,
+            pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20)
@@ -1612,12 +1628,12 @@ class MenuView:
 
         tk.Label(
             folder_row,
-            text="Images Folder:",
-            font=("Arial", 18),
+            text="📁",
+            font=("Segoe UI Emoji", 28),
             bg=bg_color,
-            width=18,
-            anchor="e",
-        ).pack(side=tk.LEFT, padx=(0, 15))
+            width=2,
+            anchor="center",
+        ).pack(side=tk.LEFT, padx=(10, 15))
 
         self.folder_var = tk.StringVar(value=str(config.images_folder))
         self.folder_entry = tk.Entry(
@@ -1630,11 +1646,11 @@ class MenuView:
 
         tk.Button(
             folder_row,
-            text="Browse...",
-            font=("Arial", 14),
+            text="📂",
+            font=("Arial", 20),
             command=self._browse_folder,
-            padx=15,
-            pady=5,
+            padx=10,
+            pady=2,
         ).pack(side=tk.LEFT, padx=(10, 0))
 
         # Pictures per round with +/- buttons
@@ -1643,12 +1659,12 @@ class MenuView:
 
         tk.Label(
             pictures_row,
-            text="Pictures per Round:",
-            font=("Arial", 18),
+            text="🖼️",
+            font=("Segoe UI Emoji", 28),
             bg=bg_color,
-            width=18,
-            anchor="e",
-        ).pack(side=tk.LEFT, padx=(0, 15))
+            width=2,
+            anchor="center",
+        ).pack(side=tk.LEFT, padx=(10, 15))
 
         self.pictures_var = tk.IntVar(value=config.pictures_per_round)
 
@@ -1686,12 +1702,12 @@ class MenuView:
 
         tk.Label(
             rounds_row,
-            text="Number of Rounds:",
-            font=("Arial", 18),
+            text="🔄",
+            font=("Segoe UI Emoji", 28),
             bg=bg_color,
-            width=18,
-            anchor="e",
-        ).pack(side=tk.LEFT, padx=(0, 15))
+            width=2,
+            anchor="center",
+        ).pack(side=tk.LEFT, padx=(10, 15))
 
         self.rounds_var = tk.IntVar(
             value=config.max_rounds if config.max_rounds > 0 else 10
@@ -1731,54 +1747,62 @@ class MenuView:
 
         tk.Button(
             button_frame,
-            text="Start Game",
-            font=("Arial", 20, "bold"),
+            text="▶️",
+            font=("Segoe UI Emoji", 28),
             command=self._start_game,
             bg=config.play_again_color,
             fg="white",
             activebackground=config.play_again_hover,
             activeforeground="white",
-            width=12,
+            width=4,
             height=2,
+            padx=10,
+            pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
         tk.Button(
             button_frame,
-            text="Quiz",
-            font=("Arial", 20),
+            text="❓",
+            font=("Segoe UI Emoji", 28),
             command=self._start_quiz,
             bg=config.quiz_color,
             fg="white",
             activebackground=config.quiz_hover,
             activeforeground="white",
-            width=12,
+            width=4,
             height=2,
+            padx=10,
+            pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
         tk.Button(
             button_frame,
-            text="Letters",
-            font=("Arial", 20),
+            text="🔤",
+            font=("Segoe UI Emoji", 28),
             command=self._start_letters,
             bg=config.letters_color,
             fg="white",
             activebackground=config.letters_hover,
             activeforeground="white",
-            width=12,
+            width=4,
             height=2,
+            padx=10,
+            pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
         tk.Button(
             button_frame,
-            text="Quit",
-            font=("Arial", 20),
+            text="❌",
+            font=("Segoe UI Emoji", 28),
             command=self._quit,
             bg=config.quit_color,
             fg="white",
             activebackground=config.quit_hover,
             activeforeground="white",
-            width=12,
+            width=4,
             height=2,
+            padx=10,
+            pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
     def _start_letters(self) -> None:
