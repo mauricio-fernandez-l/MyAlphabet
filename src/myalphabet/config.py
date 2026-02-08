@@ -46,6 +46,11 @@ DEFAULT_CONFIG = {
         "correct_sound": "",
         "wrong_sound": "",
     },
+    "video_reward": {
+        "min_rounds_video": 0,
+        "max_wrong_answers": 1,
+        "videos_folder": "",
+    },
 }
 
 
@@ -328,6 +333,27 @@ class Config:
         if not sound_path.is_absolute() and self._config_dir:
             sound_path = self._config_dir / sound_path
         return sound_path.resolve()
+
+    @property
+    def min_rounds_video(self) -> int:
+        """Return minimum rounds required to be eligible for video reward (0 = disabled)."""
+        return self._data.get("video_reward", {}).get("min_rounds_video", 0)
+
+    @property
+    def max_wrong_answers(self) -> int:
+        """Return maximum wrong answers allowed to get video reward."""
+        return self._data.get("video_reward", {}).get("max_wrong_answers", 1)
+
+    @property
+    def videos_folder(self) -> Path | None:
+        """Return videos folder path, resolving relative paths from config location."""
+        folder_str = self._data.get("video_reward", {}).get("videos_folder", "")
+        if not folder_str:
+            return None
+        folder = Path(folder_str)
+        if not folder.is_absolute() and self._config_dir:
+            folder = self._config_dir / folder
+        return folder.resolve()
 
     def validate(self) -> list[str]:
         return validate_config(self._data, self._config_dir)

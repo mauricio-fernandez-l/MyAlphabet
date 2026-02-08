@@ -1,6 +1,8 @@
 """Main game GUI for MyAlphabet."""
 
+import os
 import random
+import subprocess
 import tkinter as tk
 import winsound
 from dataclasses import dataclass
@@ -9,6 +11,13 @@ from tkinter import messagebox
 from typing import Callable
 
 from PIL import Image, ImageTk
+
+# Try to import VLC for integrated video playback
+try:
+    import vlc
+    HAS_VLC = True
+except ImportError:
+    HAS_VLC = False
 
 from .config import Config
 from .images import get_available_letters, get_images_for_letter, select_round_images
@@ -546,8 +555,46 @@ class AlphabetGame:
                 # Auto-advance after delay
                 self.root.after(self.config.next_round_delay_ms, self.start_new_round)
 
+    def _get_reward_video(self) -> Path | None:
+        """Check if player is eligible for video reward and return video path.
+        
+        Returns:
+            Path to video file if eligible, None otherwise.
+        """
+        # Check if video reward is enabled
+        if self.config.min_rounds_video <= 0:
+            return None
+        
+        # Check if videos folder exists and has videos
+        videos_folder = self.config.videos_folder
+        if not videos_folder or not videos_folder.exists():
+            return None
+        
+        # Get list of video files
+        video_extensions = {'.mp4', '.avi', '.mkv', '.mov', '.wmv', '.webm'}
+        videos = [
+            f for f in videos_folder.iterdir()
+            if f.is_file() and f.suffix.lower() in video_extensions
+        ]
+        if not videos:
+            return None
+        
+        # Check if player played enough rounds
+        rounds_played = len(self.round_results)
+        if rounds_played < self.config.min_rounds_video:
+            return None
+        
+        # Check if player had at most max_wrong_answers wrong
+        wrong_answers = rounds_played - self.score
+        if wrong_answers > self.config.max_wrong_answers:
+            return None
+        
+        # Player is eligible! Return a random video
+        return random.choice(videos)
+
+
     def _show_summary(self) -> None:
-        """Show the game summary in the main game window."""
+        """Show the game summary with results and optional video side by side."""
         # Clear the main frame content
         for widget in self.main_frame.winfo_children():
             widget.destroy()
@@ -556,18 +603,19 @@ class AlphabetGame:
         self.image_buttons.clear()
 
         bg_color = self.config.background_color
-
-        # Number of columns based on number of results
-        cols = min(6, len(self.round_results))
+        
+        # Check for video reward
+        video_path = self._get_reward_video()
+        has_video = video_path and HAS_VLC
 
         # Header
         header_frame = tk.Frame(self.main_frame, bg=bg_color)
-        header_frame.pack(pady=20)
+        header_frame.pack(pady=10, fill=tk.X)
 
         tk.Label(
             header_frame,
             text="🎉 Game Complete! 🎉",
-            font=("Arial", 28, "bold"),
+            font=("Arial", 24, "bold"),
             bg=bg_color,
             fg="#333333",
         ).pack()
@@ -575,99 +623,105 @@ class AlphabetGame:
         tk.Label(
             header_frame,
             text=f"Score: {self.score} / {len(self.round_results)}",
-            font=("Arial", 20),
+            font=("Arial", 18),
             bg=bg_color,
             fg="#666666",
-        ).pack(pady=(10, 0))
+        ).pack()
 
-        # Scrollable results area
-        canvas = tk.Canvas(self.main_frame, bg=bg_color, highlightthickness=0)
-        scrollbar = tk.Scrollbar(
-            self.main_frame, orient="vertical", command=canvas.yview
-        )
-        results_frame = tk.Frame(canvas, bg=bg_color)
+        # Main content area (side by side)
+        content_frame = tk.Frame(self.main_frame, bg=bg_color)
+        content_frame.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
 
-        def on_frame_configure(event):
-            canvas.configure(scrollregion=canvas.bbox("all"))
+        # Left side: Results gallery
+        if has_video:
+            # Split layout: gallery on left, video on right
+            content_frame.columnconfigure(0, weight=1)
+            content_frame.columnconfigure(1, weight=1)
+            content_frame.rowconfigure(0, weight=1)
+            
+            gallery_frame = tk.Frame(content_frame, bg=bg_color)
+            gallery_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+            
+            video_frame = tk.Frame(content_frame, bg="black")
+            video_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+        else:
+            # Full width gallery
+            gallery_frame = tk.Frame(content_frame, bg=bg_color)
+            gallery_frame.pack(expand=True, fill=tk.BOTH)
+            video_frame = None
 
-        def on_canvas_configure(event):
-            # Center the results frame horizontally in the canvas
-            canvas_width = event.width
-            canvas.itemconfig(canvas_window, width=canvas_width)
-
-        results_frame.bind("<Configure>", on_frame_configure)
-        canvas.bind("<Configure>", on_canvas_configure)
-
-        canvas_window = canvas.create_window((0, 0), window=results_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Store photo references to prevent garbage collection
+        # Store photo references
         self._summary_photos: list[ImageTk.PhotoImage] = []
 
-        # Configure columns to center content
-        for c in range(cols):
-            results_frame.columnconfigure(c, weight=1)
+        # Display results in 2 rows x 5 columns max
+        cols = 5
+        rows = 2
+        
+        # Calculate image size based on available space
+        img_size = 100 if has_video else 120
 
-        # Display each round result
+        results_container = tk.Frame(gallery_frame, bg=bg_color)
+        results_container.pack(expand=True)
+
         for i, result in enumerate(self.round_results):
             row = i // cols
             col = i % cols
+            
+            if row >= rows:
+                break  # Max 10 results displayed
 
             # Result card
-            card_color = (
-                "#c8e6c9" if result.was_correct else "#ffcdd2"
-            )  # Light green or light red
+            card_color = "#c8e6c9" if result.was_correct else "#ffcdd2"
             border_color = "#4CAF50" if result.was_correct else "#f44336"
 
             card = tk.Frame(
-                results_frame,
+                results_container,
                 bg=card_color,
-                highlightthickness=3,
+                highlightthickness=2,
                 highlightbackground=border_color,
             )
-            card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+            card.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
 
             # Letter label
             tk.Label(
                 card,
                 text=result.letter,
-                font=("Arial", 36, "bold"),
+                font=("Arial", 20, "bold"),
                 bg=card_color,
                 fg=border_color,
-            ).pack(pady=(10, 5))
+            ).pack(pady=(5, 2))
 
-            # Image (show chosen image)
+            # Image
             try:
                 img = Image.open(result.chosen_image)
-                img.thumbnail((150, 150), Image.Resampling.LANCZOS)
+                img.thumbnail((img_size, img_size), Image.Resampling.LANCZOS)
                 photo = ImageTk.PhotoImage(img)
                 self._summary_photos.append(photo)
 
                 img_label = tk.Label(card, image=photo, bg=card_color)
-                img_label.pack(pady=5)
+                img_label.pack(pady=2)
 
-                # Show filename
+                # Show filename (truncated)
+                name = result.chosen_image.stem
+                if len(name) > 12:
+                    name = name[:10] + "..."
                 tk.Label(
                     card,
-                    text=result.chosen_image.stem,
-                    font=("Arial", 10),
+                    text=name,
+                    font=("Arial", 8),
                     bg=card_color,
                     fg="#333333",
-                ).pack(pady=(0, 10))
+                ).pack(pady=(0, 5))
             except Exception:
-                tk.Label(
-                    card,
-                    text="(image)",
-                    font=("Arial", 12),
-                    bg=card_color,
-                ).pack(pady=(5, 10))
+                tk.Label(card, text="(image)", font=("Arial", 10), bg=card_color).pack(pady=5)
+
+        # Start video playback if eligible
+        if has_video and video_frame:
+            self._start_video_in_frame(video_path, video_frame)
 
         # Buttons at bottom
         button_frame = tk.Frame(self.main_frame, bg=bg_color)
-        button_frame.pack(pady=20, side=tk.BOTTOM)
+        button_frame.pack(pady=10, side=tk.BOTTOM)
 
         tk.Button(
             button_frame,
@@ -708,14 +762,60 @@ class AlphabetGame:
             pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
+    def _start_video_in_frame(self, video_path: Path, video_frame: tk.Frame) -> None:
+        """Start video playback in the given frame.
+        
+        Args:
+            video_path: Path to the video file.
+            video_frame: Frame to embed the video in.
+        """
+        # Create VLC instance and player
+        self._vlc_instance = vlc.Instance()
+        self._vlc_player = self._vlc_instance.media_player_new()
+        
+        # Get window handle for embedding
+        video_frame.update()
+        handle = video_frame.winfo_id()
+        self._vlc_player.set_hwnd(handle)
+        
+        # Load and play media
+        media = self._vlc_instance.media_new(str(video_path))
+        self._vlc_player.set_media(media)
+        self._vlc_player.play()
+        
+        # Check for video end and loop or stop
+        def check_video_end():
+            if hasattr(self, '_vlc_player') and self._vlc_player:
+                state = self._vlc_player.get_state()
+                if state == vlc.State.Ended:
+                    # Replay the video
+                    self._vlc_player.stop()
+                    self._vlc_player.play()
+                elif state != vlc.State.Stopped:
+                    self.root.after(500, check_video_end)
+        
+        self.root.after(500, check_video_end)
+
+    def _cleanup_video(self) -> None:
+        """Clean up VLC resources."""
+        if hasattr(self, '_vlc_player') and self._vlc_player:
+            self._vlc_player.stop()
+            self._vlc_player.release()
+            self._vlc_player = None
+        if hasattr(self, '_vlc_instance') and self._vlc_instance:
+            self._vlc_instance.release()
+            self._vlc_instance = None
+
     def _go_to_menu(self) -> None:
         """Close game and signal to return to menu."""
+        self._cleanup_video()
         # Clear the game frame
         self.main_frame.destroy()
         self.on_menu_callback()
 
     def _restart_game(self) -> None:
         """Restart the game for a new session."""
+        self._cleanup_video()
         # Clear the summary content
         for widget in self.main_frame.winfo_children():
             widget.destroy()
@@ -1072,8 +1172,45 @@ class LetterQuizGame:
         except Exception:
             pass
 
+    def _get_reward_video(self) -> Path | None:
+        """Check if player is eligible for video reward and return video path.
+        
+        Returns:
+            Path to video file if eligible, None otherwise.
+        """
+        # Check if video reward is enabled
+        if self.config.min_rounds_video <= 0:
+            return None
+        
+        # Check if videos folder exists and has videos
+        videos_folder = self.config.videos_folder
+        if not videos_folder or not videos_folder.exists():
+            return None
+        
+        # Get list of video files
+        video_extensions = {'.mp4', '.avi', '.mkv', '.mov', '.wmv', '.webm'}
+        videos = [
+            f for f in videos_folder.iterdir()
+            if f.is_file() and f.suffix.lower() in video_extensions
+        ]
+        if not videos:
+            return None
+        
+        # Check if player played enough rounds
+        rounds_played = len(self.round_results)
+        if rounds_played < self.config.min_rounds_video:
+            return None
+        
+        # Check if player had at most max_wrong_answers wrong
+        wrong_answers = rounds_played - self.score
+        if wrong_answers > self.config.max_wrong_answers:
+            return None
+        
+        # Player is eligible! Return a random video
+        return random.choice(videos)
+
     def _show_summary(self) -> None:
-        """Show the game summary."""
+        """Show the game summary with results and optional video side by side."""
         # Clear the main frame content
         for widget in self.main_frame.winfo_children():
             widget.destroy()
@@ -1083,16 +1220,19 @@ class LetterQuizGame:
         self._summary_photos.clear()
 
         bg_color = self.config.background_color
-        cols = min(6, len(self.round_results))
+        
+        # Check for video reward
+        video_path = self._get_reward_video()
+        has_video = video_path and HAS_VLC
 
         # Header
         header_frame = tk.Frame(self.main_frame, bg=bg_color)
-        header_frame.pack(pady=20)
+        header_frame.pack(pady=10, fill=tk.X)
 
         tk.Label(
             header_frame,
             text="🎉 Quiz Complete! 🎉",
-            font=("Arial", 28, "bold"),
+            font=("Arial", 24, "bold"),
             bg=bg_color,
             fg="#333333",
         ).pack()
@@ -1100,95 +1240,109 @@ class LetterQuizGame:
         tk.Label(
             header_frame,
             text=f"Score: {self.score} / {len(self.round_results)}",
-            font=("Arial", 20),
+            font=("Arial", 18),
             bg=bg_color,
             fg="#666666",
-        ).pack(pady=(10, 0))
+        ).pack()
 
-        # Scrollable results area
-        canvas = tk.Canvas(self.main_frame, bg=bg_color, highlightthickness=0)
-        scrollbar = tk.Scrollbar(
-            self.main_frame, orient="vertical", command=canvas.yview
-        )
-        results_frame = tk.Frame(canvas, bg=bg_color)
+        # Main content area (side by side)
+        content_frame = tk.Frame(self.main_frame, bg=bg_color)
+        content_frame.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
 
-        def on_frame_configure(event):
-            canvas.configure(scrollregion=canvas.bbox("all"))
+        # Left side: Results gallery
+        if has_video:
+            # Split layout: gallery on left, video on right
+            content_frame.columnconfigure(0, weight=1)
+            content_frame.columnconfigure(1, weight=1)
+            content_frame.rowconfigure(0, weight=1)
+            
+            gallery_frame = tk.Frame(content_frame, bg=bg_color)
+            gallery_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+            
+            video_frame = tk.Frame(content_frame, bg="black")
+            video_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+        else:
+            # Full width gallery
+            gallery_frame = tk.Frame(content_frame, bg=bg_color)
+            gallery_frame.pack(expand=True, fill=tk.BOTH)
+            video_frame = None
 
-        def on_canvas_configure(event):
-            canvas.itemconfig(canvas_window, width=event.width)
+        # Display results in 2 rows x 5 columns max
+        cols = 5
+        rows = 2
+        
+        # Calculate image size based on available space
+        img_size = 100 if has_video else 120
 
-        results_frame.bind("<Configure>", on_frame_configure)
-        canvas.bind("<Configure>", on_canvas_configure)
+        results_container = tk.Frame(gallery_frame, bg=bg_color)
+        results_container.pack(expand=True)
 
-        canvas_window = canvas.create_window((0, 0), window=results_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Configure columns for centering
-        for c in range(cols):
-            results_frame.columnconfigure(c, weight=1)
-
-        # Display each round result
         for i, result in enumerate(self.round_results):
             row = i // cols
             col = i % cols
+            
+            if row >= rows:
+                break  # Max 10 results displayed
 
+            # Result card
             card_color = "#c8e6c9" if result.was_correct else "#ffcdd2"
             border_color = "#4CAF50" if result.was_correct else "#f44336"
 
             card = tk.Frame(
-                results_frame,
+                results_container,
                 bg=card_color,
-                highlightthickness=3,
+                highlightthickness=2,
                 highlightbackground=border_color,
             )
-            card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+            card.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
 
             # Show chosen letter vs correct letter
             if result.was_correct:
                 letter_text = result.correct_letter
                 letter_color = "#4CAF50"
             else:
-                letter_text = f"{result.chosen_letter} → {result.correct_letter}"
+                letter_text = f"{result.chosen_letter}→{result.correct_letter}"
                 letter_color = "#f44336"
 
             tk.Label(
                 card,
                 text=letter_text,
-                font=("Arial", 24, "bold"),
+                font=("Arial", 16, "bold"),
                 bg=card_color,
                 fg=letter_color,
-            ).pack(pady=(10, 5))
+            ).pack(pady=(5, 2))
 
             # Image
             try:
                 img = Image.open(result.image_path)
-                img.thumbnail((120, 120), Image.Resampling.LANCZOS)
+                img.thumbnail((img_size, img_size), Image.Resampling.LANCZOS)
                 photo = ImageTk.PhotoImage(img)
                 self._summary_photos.append(photo)
 
                 img_label = tk.Label(card, image=photo, bg=card_color)
-                img_label.pack(pady=5)
+                img_label.pack(pady=2)
 
-                # Show filename
+                # Show filename (truncated)
+                name = result.image_path.stem
+                if len(name) > 12:
+                    name = name[:10] + "..."
                 tk.Label(
                     card,
-                    text=result.image_path.stem,
-                    font=("Arial", 10),
+                    text=name,
+                    font=("Arial", 8),
                     bg=card_color,
                     fg="#333333",
-                ).pack(pady=(0, 10))
+                ).pack(pady=(0, 5))
             except Exception:
-                tk.Label(card, text="(image)", font=("Arial", 12), bg=card_color).pack(
-                    pady=(5, 10)
-                )
+                tk.Label(card, text="(image)", font=("Arial", 10), bg=card_color).pack(pady=5)
+
+        # Start video playback if eligible
+        if has_video and video_frame:
+            self._start_video_in_frame(video_path, video_frame)
 
         # Buttons at bottom
         button_frame = tk.Frame(self.main_frame, bg=bg_color)
-        button_frame.pack(pady=20, side=tk.BOTTOM)
+        button_frame.pack(pady=10, side=tk.BOTTOM)
 
         tk.Button(
             button_frame,
@@ -1229,8 +1383,53 @@ class LetterQuizGame:
             pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
+    def _start_video_in_frame(self, video_path: Path, video_frame: tk.Frame) -> None:
+        """Start video playback in the given frame.
+        
+        Args:
+            video_path: Path to the video file.
+            video_frame: Frame to embed the video in.
+        """
+        # Create VLC instance and player
+        self._vlc_instance = vlc.Instance()
+        self._vlc_player = self._vlc_instance.media_player_new()
+        
+        # Get window handle for embedding
+        video_frame.update()
+        handle = video_frame.winfo_id()
+        self._vlc_player.set_hwnd(handle)
+        
+        # Load and play media
+        media = self._vlc_instance.media_new(str(video_path))
+        self._vlc_player.set_media(media)
+        self._vlc_player.play()
+        
+        # Check for video end and loop
+        def check_video_end():
+            if hasattr(self, '_vlc_player') and self._vlc_player:
+                state = self._vlc_player.get_state()
+                if state == vlc.State.Ended:
+                    # Replay the video
+                    self._vlc_player.stop()
+                    self._vlc_player.play()
+                elif state != vlc.State.Stopped:
+                    self.root.after(500, check_video_end)
+        
+        self.root.after(500, check_video_end)
+
+    def _cleanup_video(self) -> None:
+        """Clean up VLC resources."""
+        if hasattr(self, '_vlc_player') and self._vlc_player:
+            self._vlc_player.stop()
+            self._vlc_player.release()
+            self._vlc_player = None
+        if hasattr(self, '_vlc_instance') and self._vlc_instance:
+            self._vlc_instance.release()
+            self._vlc_instance = None
+
     def _restart_game(self) -> None:
         """Restart the game."""
+        self._cleanup_video()
         self.score = 0
         self.rounds_played = 0
         self.round_results.clear()
@@ -1249,11 +1448,13 @@ class LetterQuizGame:
 
     def _go_to_menu(self) -> None:
         """Return to main menu."""
+        self._cleanup_video()
         self.main_frame.destroy()
         self.on_menu_callback()
 
     def _quit_game(self) -> None:
         """Quit the game."""
+        self._cleanup_video()
         if self.rounds_played > 0 and self.rounds_played < self.config.max_rounds:
             result = messagebox.askyesno("Quit Game", "Are you sure you want to quit?")
             if result:
