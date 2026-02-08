@@ -37,6 +37,8 @@ DEFAULT_CONFIG = {
         "menu_hover": "#388E3C",
         "letters_color": "#9C27B0",
         "letters_hover": "#7B1FA2",
+        "quiz_color": "#00BCD4",
+        "quiz_hover": "#0097A7",
     },
     "sound": {
         "enabled": True,
@@ -280,6 +282,14 @@ class Config:
     @property
     def letters_hover(self) -> str:
         return self._data["buttons"]["letters_hover"]
+
+    @property
+    def quiz_color(self) -> str:
+        return self._data["buttons"]["quiz_color"]
+
+    @property
+    def quiz_hover(self) -> str:
+        return self._data["buttons"]["quiz_hover"]
 
     @property
     def sound_enabled(self) -> bool:

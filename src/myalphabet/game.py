@@ -742,6 +742,520 @@ class AlphabetGame:
         self.main_frame.destroy()
 
 
+@dataclass
+class QuizRoundResult:
+    """Store the result of a single quiz round."""
+
+    image_path: Path
+    correct_letter: str
+    chosen_letter: str
+    was_correct: bool
+
+
+class LetterQuizGame:
+    """Letter Quiz game - guess the first letter of displayed images."""
+
+    def __init__(
+        self, config: Config, root: tk.Tk, on_menu_callback: Callable[[], None]
+    ):
+        self.config = config
+        self.root = root
+        self.on_menu_callback = on_menu_callback
+        self.available_letters: list[str] = []
+        self.all_images: list[Path] = []
+        self.image_queue: list[Path] = []
+        self.current_image: Path | None = None
+        self.current_letter: str = ""
+        self.score: int = 0
+        self.rounds_played: int = 0
+        self.round_results: list[QuizRoundResult] = []
+        self.progress_boxes: list[tk.Canvas] = []
+        self.letter_buttons: list[tk.Button] = []
+        self.photo_ref: ImageTk.PhotoImage | None = None
+        self._summary_photos: list[ImageTk.PhotoImage] = []
+
+        self._setup_ui()
+        self._load_game_data()
+
+    def _setup_ui(self) -> None:
+        """Set up the user interface."""
+        bg_color = self.config.background_color
+
+        # Main container
+        self.main_frame = tk.Frame(self.root, bg=bg_color)
+        self.main_frame.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
+
+        self._setup_ui_content()
+
+    def _setup_ui_content(self) -> None:
+        """Set up the game UI content inside main_frame."""
+        bg_color = self.config.background_color
+
+        # Top bar: Progress (left), Title (center), Buttons (right)
+        self.top_bar = tk.Frame(self.main_frame, bg=bg_color)
+        self.top_bar.pack(fill=tk.X)
+
+        self.top_bar.columnconfigure(0, weight=1)
+        self.top_bar.columnconfigure(1, weight=1)
+        self.top_bar.columnconfigure(2, weight=1)
+
+        # Left: Progress indicator
+        if self.config.max_rounds > 0:
+            self.progress_frame = tk.Frame(self.top_bar, bg=bg_color)
+            self.progress_frame.grid(row=0, column=0, sticky="w")
+            self._create_progress_boxes()
+
+        # Center: Title
+        title_frame = tk.Frame(self.top_bar, bg=bg_color)
+        title_frame.grid(row=0, column=1)
+
+        tk.Label(
+            title_frame,
+            text="Which letter?",
+            font=("Arial", 24, "bold"),
+            bg=bg_color,
+            fg=self.config.quiz_color,
+        ).pack()
+
+        # Right: Menu and Quit buttons
+        buttons_frame = tk.Frame(self.top_bar, bg=bg_color)
+        buttons_frame.grid(row=0, column=2, sticky="e")
+
+        tk.Button(
+            buttons_frame,
+            text="Menu",
+            font=("Arial", 10),
+            command=self._go_to_menu,
+            bg=self.config.menu_color,
+            fg="white",
+            activebackground=self.config.menu_hover,
+            activeforeground="white",
+            padx=8,
+            pady=2,
+        ).pack(side=tk.LEFT, padx=2)
+
+        tk.Button(
+            buttons_frame,
+            text="Quit",
+            font=("Arial", 10),
+            command=self._quit_game,
+            bg=self.config.quit_color,
+            fg="white",
+            activebackground=self.config.quit_hover,
+            activeforeground="white",
+            padx=8,
+            pady=2,
+        ).pack(side=tk.LEFT, padx=2)
+
+        # Image display area
+        self.image_frame = tk.Frame(self.main_frame, bg=bg_color)
+        self.image_frame.pack(expand=True, fill=tk.BOTH, pady=20)
+
+        self.image_label = tk.Label(self.image_frame, bg="white", relief=tk.RAISED, bd=3)
+        self.image_label.pack(expand=True)
+
+        # Image name label (optional)
+        self.image_name_frame = tk.Frame(self.image_frame, bg=bg_color)
+        self.image_name_frame.pack(pady=(10, 0))
+
+        # Letter buttons area
+        self.letters_frame = tk.Frame(self.main_frame, bg=bg_color)
+        self.letters_frame.pack(pady=20)
+
+    def _create_progress_boxes(self) -> None:
+        """Create progress indicator boxes."""
+        self.progress_boxes.clear()
+        max_rounds = self.config.max_rounds
+
+        for i in range(max_rounds):
+            box = tk.Canvas(
+                self.progress_frame,
+                width=20,
+                height=20,
+                bg="#e0e0e0",
+                highlightthickness=1,
+                highlightbackground="#999999",
+            )
+            box.pack(side=tk.LEFT, padx=3)
+            self.progress_boxes.append(box)
+
+    def _update_progress_box(self, round_index: int, correct: bool) -> None:
+        """Update a progress box color based on result."""
+        if round_index < len(self.progress_boxes):
+            color = "#4CAF50" if correct else "#f44336"
+            self.progress_boxes[round_index].configure(bg=color)
+
+    def _load_game_data(self) -> None:
+        """Load available letters and images."""
+        self.available_letters = sorted(get_available_letters(self.config.images_folder))
+
+        if len(self.available_letters) < 3:
+            messagebox.showerror(
+                "Error",
+                "Need at least 3 different letters for Letter Quiz mode.\n"
+                f"Found only: {', '.join(self.available_letters) or 'none'}",
+            )
+            self._go_to_menu()
+            return
+
+        # Collect all images
+        self.all_images = []
+        for letter in self.available_letters:
+            self.all_images.extend(get_images_for_letter(self.config.images_folder, letter))
+
+        if not self.all_images:
+            messagebox.showerror("Error", "No images found!")
+            self._go_to_menu()
+            return
+
+        # Start first round
+        self.start_new_round()
+
+    def _get_next_image(self) -> Path:
+        """Get the next image, reshuffling when all have been used."""
+        if not self.image_queue:
+            self.image_queue = list(self.all_images)
+            random.shuffle(self.image_queue)
+        return self.image_queue.pop()
+
+    def start_new_round(self) -> None:
+        """Start a new round with a random image."""
+        # Check if game is complete
+        max_rounds = self.config.max_rounds
+        if max_rounds > 0 and self.rounds_played >= max_rounds:
+            self._show_summary()
+            return
+
+        # Get next image
+        self.current_image = self._get_next_image()
+        self.current_letter = self.current_image.stem[0].upper()
+
+        # Display the image
+        self._display_image()
+
+        # Create letter choice buttons
+        self._create_letter_buttons()
+
+        self.rounds_played += 1
+
+    def _display_image(self) -> None:
+        """Display the current image."""
+        if not self.current_image:
+            return
+
+        try:
+            img = Image.open(self.current_image)
+            # Make image larger for quiz mode
+            img.thumbnail((350, 350), Image.Resampling.LANCZOS)
+            self.photo_ref = ImageTk.PhotoImage(img)
+            self.image_label.configure(image=self.photo_ref)
+        except Exception:
+            self.image_label.configure(text="(error)", image="")
+
+        # Show image name if enabled
+        for widget in self.image_name_frame.winfo_children():
+            widget.destroy()
+
+        if self.config.show_image_names and self.current_image:
+            name = self.current_image.stem
+            bg_color = self.config.background_color
+
+            # First letter bold and bigger
+            first_label = tk.Label(
+                self.image_name_frame,
+                text=name[0].upper(),
+                font=("Arial", 16, "bold"),
+                bg=bg_color,
+                fg="#333333",
+            )
+            first_label.pack(side=tk.LEFT)
+
+            if len(name) > 1:
+                rest_label = tk.Label(
+                    self.image_name_frame,
+                    text=name[1:],
+                    font=("Arial", 14),
+                    bg=bg_color,
+                    fg="#333333",
+                )
+                rest_label.pack(side=tk.LEFT)
+
+    def _create_letter_buttons(self) -> None:
+        """Create letter choice buttons (1 correct + 2 wrong)."""
+        # Clear existing buttons
+        for btn in self.letter_buttons:
+            btn.destroy()
+        self.letter_buttons.clear()
+
+        # Get wrong letters (excluding correct one)
+        wrong_letters = [l for l in self.available_letters if l != self.current_letter]
+        random.shuffle(wrong_letters)
+        wrong_choices = wrong_letters[:2]
+
+        # Combine and shuffle
+        choices = [self.current_letter] + wrong_choices
+        random.shuffle(choices)
+
+        # Create buttons
+        for letter in choices:
+            btn = tk.Button(
+                self.letters_frame,
+                text=letter,
+                font=("Arial", 36, "bold"),
+                width=4,
+                height=2,
+                bg=self.config.quiz_color,
+                fg="white",
+                activebackground=self.config.quiz_hover,
+                activeforeground="white",
+                command=lambda l=letter: self._on_letter_click(l),
+                cursor="hand2",
+            )
+            btn.pack(side=tk.LEFT, padx=15)
+            self.letter_buttons.append(btn)
+
+    def _on_letter_click(self, chosen_letter: str) -> None:
+        """Handle letter button click."""
+        is_correct = chosen_letter == self.current_letter
+
+        # Disable all buttons
+        for btn in self.letter_buttons:
+            btn.configure(state=tk.DISABLED, cursor="")
+
+        # Record result
+        result = QuizRoundResult(
+            image_path=self.current_image,
+            correct_letter=self.current_letter,
+            chosen_letter=chosen_letter,
+            was_correct=is_correct,
+        )
+        self.round_results.append(result)
+
+        # Update progress
+        if self.config.max_rounds > 0:
+            self._update_progress_box(self.rounds_played - 1, is_correct)
+
+        # Highlight correct/wrong
+        for btn in self.letter_buttons:
+            btn_letter = btn.cget("text")
+            if btn_letter == self.current_letter:
+                btn.configure(bg="#4CAF50")  # Green for correct
+            elif btn_letter == chosen_letter and not is_correct:
+                btn.configure(bg="#f44336")  # Red for wrong choice
+
+        if is_correct:
+            self.score += 1
+            self._play_sound(self.config.correct_sound)
+        else:
+            self._play_sound(self.config.wrong_sound)
+
+        # Next round after delay
+        self.root.after(self.config.next_round_delay_ms, self.start_new_round)
+
+    def _play_sound(self, sound_path: Path | None) -> None:
+        """Play a sound file if it exists."""
+        if not self.config.sound_enabled:
+            return
+        if not sound_path or not sound_path.exists():
+            return
+        try:
+            winsound.PlaySound(
+                str(sound_path), winsound.SND_FILENAME | winsound.SND_ASYNC
+            )
+        except Exception:
+            pass
+
+    def _show_summary(self) -> None:
+        """Show the game summary."""
+        # Clear the main frame content
+        for widget in self.main_frame.winfo_children():
+            widget.destroy()
+
+        self.progress_boxes.clear()
+        self.letter_buttons.clear()
+        self._summary_photos.clear()
+
+        bg_color = self.config.background_color
+        cols = min(6, len(self.round_results))
+
+        # Header
+        header_frame = tk.Frame(self.main_frame, bg=bg_color)
+        header_frame.pack(pady=20)
+
+        tk.Label(
+            header_frame,
+            text="🎉 Quiz Complete! 🎉",
+            font=("Arial", 28, "bold"),
+            bg=bg_color,
+            fg="#333333",
+        ).pack()
+
+        tk.Label(
+            header_frame,
+            text=f"Score: {self.score} / {len(self.round_results)}",
+            font=("Arial", 20),
+            bg=bg_color,
+            fg="#666666",
+        ).pack(pady=(10, 0))
+
+        # Scrollable results area
+        canvas = tk.Canvas(self.main_frame, bg=bg_color, highlightthickness=0)
+        scrollbar = tk.Scrollbar(
+            self.main_frame, orient="vertical", command=canvas.yview
+        )
+        results_frame = tk.Frame(canvas, bg=bg_color)
+
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        results_frame.bind("<Configure>", on_frame_configure)
+        canvas.bind("<Configure>", on_canvas_configure)
+
+        canvas_window = canvas.create_window((0, 0), window=results_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Configure columns for centering
+        for c in range(cols):
+            results_frame.columnconfigure(c, weight=1)
+
+        # Display each round result
+        for i, result in enumerate(self.round_results):
+            row = i // cols
+            col = i % cols
+
+            card_color = "#c8e6c9" if result.was_correct else "#ffcdd2"
+            border_color = "#4CAF50" if result.was_correct else "#f44336"
+
+            card = tk.Frame(
+                results_frame,
+                bg=card_color,
+                highlightthickness=3,
+                highlightbackground=border_color,
+            )
+            card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+
+            # Show chosen letter vs correct letter
+            if result.was_correct:
+                letter_text = result.correct_letter
+                letter_color = "#4CAF50"
+            else:
+                letter_text = f"{result.chosen_letter} → {result.correct_letter}"
+                letter_color = "#f44336"
+
+            tk.Label(
+                card,
+                text=letter_text,
+                font=("Arial", 24, "bold"),
+                bg=card_color,
+                fg=letter_color,
+            ).pack(pady=(10, 5))
+
+            # Image
+            try:
+                img = Image.open(result.image_path)
+                img.thumbnail((120, 120), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                self._summary_photos.append(photo)
+
+                img_label = tk.Label(card, image=photo, bg=card_color)
+                img_label.pack(pady=5)
+
+                # Show filename
+                tk.Label(
+                    card,
+                    text=result.image_path.stem,
+                    font=("Arial", 10),
+                    bg=card_color,
+                    fg="#333333",
+                ).pack(pady=(0, 10))
+            except Exception:
+                tk.Label(card, text="(image)", font=("Arial", 12), bg=card_color).pack(
+                    pady=(5, 10)
+                )
+
+        # Buttons at bottom
+        button_frame = tk.Frame(self.main_frame, bg=bg_color)
+        button_frame.pack(pady=20, side=tk.BOTTOM)
+
+        tk.Button(
+            button_frame,
+            text="Play Again",
+            font=("Arial", 14),
+            command=self._restart_game,
+            bg=self.config.play_again_color,
+            fg="white",
+            activebackground=self.config.play_again_hover,
+            activeforeground="white",
+        ).pack(side=tk.LEFT, padx=10)
+
+        tk.Button(
+            button_frame,
+            text="Main Menu",
+            font=("Arial", 14),
+            command=self._go_to_menu,
+            bg=self.config.menu_color,
+            fg="white",
+            activebackground=self.config.menu_hover,
+            activeforeground="white",
+        ).pack(side=tk.LEFT, padx=10)
+
+        tk.Button(
+            button_frame,
+            text="Quit",
+            font=("Arial", 14),
+            command=self._quit_game,
+            bg=self.config.quit_color,
+            fg="white",
+            activebackground=self.config.quit_hover,
+            activeforeground="white",
+        ).pack(side=tk.LEFT, padx=10)
+
+    def _restart_game(self) -> None:
+        """Restart the game."""
+        self.score = 0
+        self.rounds_played = 0
+        self.round_results.clear()
+        self.image_queue.clear()
+        self._summary_photos.clear()
+
+        # Rebuild UI
+        for widget in self.main_frame.winfo_children():
+            widget.destroy()
+
+        self._setup_ui_content()
+
+        if self.config.max_rounds > 0:
+            self._create_progress_boxes()
+
+        self.start_new_round()
+
+    def _go_to_menu(self) -> None:
+        """Return to main menu."""
+        self.main_frame.destroy()
+        self.on_menu_callback()
+
+    def _quit_game(self) -> None:
+        """Quit the game."""
+        if self.rounds_played > 0 and self.rounds_played < self.config.max_rounds:
+            result = messagebox.askyesno(
+                "Quit Game", "Are you sure you want to quit?"
+            )
+            if result:
+                self.root.quit()
+        else:
+            self.root.quit()
+
+    def destroy(self) -> None:
+        """Clean up the game frame."""
+        self.main_frame.destroy()
+
+
 class LettersView:
     """Letters browsing mode - view all letters and their images."""
 
@@ -1034,11 +1548,13 @@ class MenuView:
         root: tk.Tk,
         on_start_callback: Callable[[dict], None],
         on_letters_callback: Callable[[dict], None] | None = None,
+        on_quiz_callback: Callable[[dict], None] | None = None,
     ):
         self.config = config
         self.root = root
         self.on_start_callback = on_start_callback
         self.on_letters_callback = on_letters_callback
+        self.on_quiz_callback = on_quiz_callback
         self.icon_photos = []  # Store icon photos to prevent garbage collection
 
         bg_color = config.background_color
@@ -1228,9 +1744,22 @@ class MenuView:
             fg="white",
             activebackground=config.play_again_hover,
             activeforeground="white",
-            width=14,
+            width=12,
             height=2,
-        ).pack(side=tk.LEFT, padx=15)
+        ).pack(side=tk.LEFT, padx=10)
+
+        tk.Button(
+            button_frame,
+            text="Quiz",
+            font=("Arial", 20),
+            command=self._start_quiz,
+            bg=config.quiz_color,
+            fg="white",
+            activebackground=config.quiz_hover,
+            activeforeground="white",
+            width=12,
+            height=2,
+        ).pack(side=tk.LEFT, padx=10)
 
         tk.Button(
             button_frame,
@@ -1241,9 +1770,9 @@ class MenuView:
             fg="white",
             activebackground=config.letters_hover,
             activeforeground="white",
-            width=14,
+            width=12,
             height=2,
-        ).pack(side=tk.LEFT, padx=15)
+        ).pack(side=tk.LEFT, padx=10)
 
         tk.Button(
             button_frame,
@@ -1254,9 +1783,9 @@ class MenuView:
             fg="white",
             activebackground=config.quit_hover,
             activeforeground="white",
-            width=14,
+            width=12,
             height=2,
-        ).pack(side=tk.LEFT, padx=15)
+        ).pack(side=tk.LEFT, padx=10)
 
     def _start_letters(self) -> None:
         """Start the letters browsing mode."""
@@ -1287,6 +1816,45 @@ class MenuView:
         # Destroy menu view and call letters callback
         self.main_container.destroy()
         self.on_letters_callback(settings)
+
+    def _start_quiz(self) -> None:
+        """Start the letter quiz mode."""
+        if not self.on_quiz_callback:
+            return
+
+        folder = Path(self.folder_var.get())
+        if not folder.exists():
+            messagebox.showerror("Error", f"Folder does not exist:\n{folder}")
+            return
+        if not folder.is_dir():
+            messagebox.showerror("Error", f"Not a valid folder:\n{folder}")
+            return
+
+        # Check for images
+        letters = get_available_letters(folder)
+        if not letters:
+            messagebox.showerror(
+                "Error",
+                f"No valid images found in:\n{folder}\n\n"
+                "Images should start with a letter (e.g., Apple.png, Lion.jpg)",
+            )
+            return
+
+        if len(letters) < 3:
+            messagebox.showerror(
+                "Error",
+                f"Need at least 3 different letters for Quiz mode.\n"
+                f"Found only: {', '.join(sorted(letters))}",
+            )
+            return
+
+        settings = {
+            "images_folder": folder,
+            "max_rounds": self.rounds_var.get(),
+        }
+        # Destroy menu view and call quiz callback
+        self.main_container.destroy()
+        self.on_quiz_callback(settings)
 
     def _adjust_value(
         self, var: tk.IntVar, delta: int, min_val: int, max_val: int
@@ -1384,7 +1952,7 @@ class GameApp:
     def _show_menu(self) -> None:
         """Show the menu view."""
         self.current_view = MenuView(
-            self.config, self.root, self._start_game, self._start_letters
+            self.config, self.root, self._start_game, self._start_letters, self._start_quiz
         )
 
     def _start_game(self, settings: dict) -> None:
@@ -1418,6 +1986,21 @@ class GameApp:
         self.current_view = LettersView(
             self.config, self.root, settings["images_folder"], self._show_menu
         )
+
+    def _start_quiz(self, settings: dict) -> None:
+        """Start the letter quiz mode."""
+        # Update config with user settings
+        self.config._data["images_folder"] = str(settings["images_folder"])
+        self.config._data["game"]["max_rounds"] = settings["max_rounds"]
+        # Update config_dir for proper path resolution
+        self.config._config_dir = (
+            settings["images_folder"].parent
+            if not settings["images_folder"].is_absolute()
+            else None
+        )
+
+        # Create quiz view
+        self.current_view = LetterQuizGame(self.config, self.root, self._show_menu)
 
     def run(self) -> None:
         """Run the application."""

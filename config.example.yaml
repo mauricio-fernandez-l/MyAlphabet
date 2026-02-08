@@ -61,6 +61,8 @@ buttons:
   menu_hover: "#388E3C"
   letters_color: "#9C27B0"
   letters_hover: "#7B1FA2"
+  quiz_color: "#00BCD4"
+  quiz_hover: "#0097A7"
 
 # Sound settings
 sound:
