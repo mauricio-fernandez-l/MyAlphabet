@@ -15,7 +15,7 @@ DEFAULT_CONFIG = {
         "width": 1024,
         "height": 768,
         "title": "My Alphabet Game",
-        "fullscreen": False,
+        "fullscreen": True,
     },
     "game": {
         "max_rounds": 7,
