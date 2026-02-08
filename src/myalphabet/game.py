@@ -805,18 +805,6 @@ class LetterQuizGame:
             self.progress_frame.grid(row=0, column=0, sticky="w")
             self._create_progress_boxes()
 
-        # Center: Title
-        title_frame = tk.Frame(self.top_bar, bg=bg_color)
-        title_frame.grid(row=0, column=1)
-
-        tk.Label(
-            title_frame,
-            text="Which letter?",
-            font=("Arial", 24, "bold"),
-            bg=bg_color,
-            fg=self.config.quiz_color,
-        ).pack()
-
         # Right: Menu and Quit buttons
         buttons_frame = tk.Frame(self.top_bar, bg=bg_color)
         buttons_frame.grid(row=0, column=2, sticky="e")
@@ -851,7 +839,9 @@ class LetterQuizGame:
         self.image_frame = tk.Frame(self.main_frame, bg=bg_color)
         self.image_frame.pack(expand=True, fill=tk.BOTH, pady=20)
 
-        self.image_label = tk.Label(self.image_frame, bg="white", relief=tk.RAISED, bd=3)
+        self.image_label = tk.Label(
+            self.image_frame, bg="white", relief=tk.RAISED, bd=3
+        )
         self.image_label.pack(expand=True)
 
         # Image name label (optional)
@@ -887,7 +877,9 @@ class LetterQuizGame:
 
     def _load_game_data(self) -> None:
         """Load available letters and images."""
-        self.available_letters = sorted(get_available_letters(self.config.images_folder))
+        self.available_letters = sorted(
+            get_available_letters(self.config.images_folder)
+        )
 
         if len(self.available_letters) < 3:
             messagebox.showerror(
@@ -901,7 +893,9 @@ class LetterQuizGame:
         # Collect all images
         self.all_images = []
         for letter in self.available_letters:
-            self.all_images.extend(get_images_for_letter(self.config.images_folder, letter))
+            self.all_images.extend(
+                get_images_for_letter(self.config.images_folder, letter)
+            )
 
         if not self.all_images:
             messagebox.showerror("Error", "No images found!")
@@ -1223,15 +1217,14 @@ class LetterQuizGame:
         self.round_results.clear()
         self.image_queue.clear()
         self._summary_photos.clear()
+        self.progress_boxes.clear()
+        self.letter_buttons.clear()
 
         # Rebuild UI
         for widget in self.main_frame.winfo_children():
             widget.destroy()
 
         self._setup_ui_content()
-
-        if self.config.max_rounds > 0:
-            self._create_progress_boxes()
 
         self.start_new_round()
 
@@ -1243,9 +1236,7 @@ class LetterQuizGame:
     def _quit_game(self) -> None:
         """Quit the game."""
         if self.rounds_played > 0 and self.rounds_played < self.config.max_rounds:
-            result = messagebox.askyesno(
-                "Quit Game", "Are you sure you want to quit?"
-            )
+            result = messagebox.askyesno("Quit Game", "Are you sure you want to quit?")
             if result:
                 self.root.quit()
         else:
@@ -1952,7 +1943,11 @@ class GameApp:
     def _show_menu(self) -> None:
         """Show the menu view."""
         self.current_view = MenuView(
-            self.config, self.root, self._start_game, self._start_letters, self._start_quiz
+            self.config,
+            self.root,
+            self._start_game,
+            self._start_letters,
+            self._start_quiz,
         )
 
     def _start_game(self, settings: dict) -> None:
