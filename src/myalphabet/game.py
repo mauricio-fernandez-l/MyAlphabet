@@ -1760,6 +1760,8 @@ class MenuView:
         self.on_quiz_callback = on_quiz_callback
         self.icon_photos = []  # Store icon photos to prevent garbage collection
 
+        from . import __version__
+
         bg_color = config.background_color
 
         # Main container with centering
@@ -1998,6 +2000,16 @@ class MenuView:
             pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
+        # Version label at bottom center
+        self.version_label = tk.Label(
+            self.root,
+            text=f"v{__version__}",
+            font=("Arial", 10),
+            bg=bg_color,
+            fg="#aaaaaa",
+        )
+        self.version_label.place(relx=0.5, rely=1.0, anchor="s", y=-10)
+
     def _start_letters(self) -> None:
         """Start the letters browsing mode."""
         if not self.on_letters_callback:
@@ -2125,6 +2137,7 @@ class MenuView:
 
     def destroy(self) -> None:
         """Clean up the menu view."""
+        self.version_label.destroy()
         self.main_container.destroy()
 
 
