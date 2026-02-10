@@ -120,11 +120,14 @@ class AlphabetGame:
     """Main game class managing the alphabet learning game."""
 
     def __init__(
-        self, config: Config, root: tk.Tk, on_menu_callback: Callable[[], None]
+        self, config: Config, root: tk.Tk, on_menu_callback: Callable[[], None],
+        vlc_instance=None,
     ):
         self.config = config
         self.root = root
         self.on_menu_callback = on_menu_callback
+        self._vlc_instance = vlc_instance
+        self._vlc_player = None
         self.available_letters: set[str] = set()
         self.letter_queue: list[str] = []  # Shuffled queue of letters for fair rotation
         self.current_letter: str = ""
@@ -607,7 +610,7 @@ class AlphabetGame:
 
         # Check for video reward
         video_path = self._get_reward_video()
-        has_video = video_path and HAS_VLC
+        has_video = video_path and self._vlc_instance
 
         # Header
         header_frame = tk.Frame(self.main_frame, bg=bg_color)
@@ -772,8 +775,10 @@ class AlphabetGame:
             video_path: Path to the video file.
             video_frame: Frame to embed the video in.
         """
-        # Create VLC instance and player
-        self._vlc_instance = vlc.Instance()
+        if not self._vlc_instance:
+            return
+
+        # Create player from shared instance
         self._vlc_player = self._vlc_instance.media_player_new()
 
         # Get window handle for embedding
@@ -781,33 +786,18 @@ class AlphabetGame:
         handle = video_frame.winfo_id()
         self._vlc_player.set_hwnd(handle)
 
-        # Load and play media
+        # Load and play media with looping
         media = self._vlc_instance.media_new(str(video_path))
+        media.add_option('input-repeat=-1')
         self._vlc_player.set_media(media)
         self._vlc_player.play()
 
-        # Check for video end and loop or stop
-        def check_video_end():
-            if hasattr(self, "_vlc_player") and self._vlc_player:
-                state = self._vlc_player.get_state()
-                if state == vlc.State.Ended:
-                    # Replay the video
-                    self._vlc_player.stop()
-                    self._vlc_player.play()
-                elif state != vlc.State.Stopped:
-                    self.root.after(500, check_video_end)
-
-        self.root.after(500, check_video_end)
-
     def _cleanup_video(self) -> None:
-        """Clean up VLC resources."""
-        if hasattr(self, "_vlc_player") and self._vlc_player:
+        """Clean up VLC player (not the shared instance)."""
+        if self._vlc_player:
             self._vlc_player.stop()
             self._vlc_player.release()
             self._vlc_player = None
-        if hasattr(self, "_vlc_instance") and self._vlc_instance:
-            self._vlc_instance.release()
-            self._vlc_instance = None
 
     def _go_to_menu(self) -> None:
         """Close game and signal to return to menu."""
@@ -869,11 +859,14 @@ class LetterQuizGame:
     """Letter Quiz game - guess the first letter of displayed images."""
 
     def __init__(
-        self, config: Config, root: tk.Tk, on_menu_callback: Callable[[], None]
+        self, config: Config, root: tk.Tk, on_menu_callback: Callable[[], None],
+        vlc_instance=None,
     ):
         self.config = config
         self.root = root
         self.on_menu_callback = on_menu_callback
+        self._vlc_instance = vlc_instance
+        self._vlc_player = None
         self.available_letters: list[str] = []
         self.all_images: list[Path] = []
         self.image_queue: list[Path] = []
@@ -1227,7 +1220,7 @@ class LetterQuizGame:
 
         # Check for video reward
         video_path = self._get_reward_video()
-        has_video = video_path and HAS_VLC
+        has_video = video_path and self._vlc_instance
 
         # Header
         header_frame = tk.Frame(self.main_frame, bg=bg_color)
@@ -1396,8 +1389,10 @@ class LetterQuizGame:
             video_path: Path to the video file.
             video_frame: Frame to embed the video in.
         """
-        # Create VLC instance and player
-        self._vlc_instance = vlc.Instance()
+        if not self._vlc_instance:
+            return
+
+        # Create player from shared instance
         self._vlc_player = self._vlc_instance.media_player_new()
 
         # Get window handle for embedding
@@ -1405,33 +1400,18 @@ class LetterQuizGame:
         handle = video_frame.winfo_id()
         self._vlc_player.set_hwnd(handle)
 
-        # Load and play media
+        # Load and play media with looping
         media = self._vlc_instance.media_new(str(video_path))
+        media.add_option('input-repeat=-1')
         self._vlc_player.set_media(media)
         self._vlc_player.play()
 
-        # Check for video end and loop
-        def check_video_end():
-            if hasattr(self, "_vlc_player") and self._vlc_player:
-                state = self._vlc_player.get_state()
-                if state == vlc.State.Ended:
-                    # Replay the video
-                    self._vlc_player.stop()
-                    self._vlc_player.play()
-                elif state != vlc.State.Stopped:
-                    self.root.after(500, check_video_end)
-
-        self.root.after(500, check_video_end)
-
     def _cleanup_video(self) -> None:
-        """Clean up VLC resources."""
-        if hasattr(self, "_vlc_player") and self._vlc_player:
+        """Clean up VLC player (not the shared instance)."""
+        if self._vlc_player:
             self._vlc_player.stop()
             self._vlc_player.release()
             self._vlc_player = None
-        if hasattr(self, "_vlc_instance") and self._vlc_instance:
-            self._vlc_instance.release()
-            self._vlc_instance = None
 
     def _restart_game(self) -> None:
         """Restart the game."""
@@ -2149,6 +2129,14 @@ class GameApp:
         self.config = config
         self.current_view = None
         self.icon_photo = None  # Store icon to prevent garbage collection
+        self._vlc_instance = None
+
+        # Pre-initialize VLC instance for fast video playback later
+        if HAS_VLC:
+            try:
+                self._vlc_instance = vlc.Instance('--quiet')
+            except Exception:
+                self._vlc_instance = None
 
         # Create main window
         self.root = tk.Tk()
@@ -2200,7 +2188,7 @@ class GameApp:
         )
 
         # Create game view
-        self.current_view = AlphabetGame(self.config, self.root, self._show_menu)
+        self.current_view = AlphabetGame(self.config, self.root, self._show_menu, self._vlc_instance)
 
     def _start_letters(self, settings: dict) -> None:
         """Start the letters browsing mode."""
@@ -2232,7 +2220,7 @@ class GameApp:
         )
 
         # Create quiz view
-        self.current_view = LetterQuizGame(self.config, self.root, self._show_menu)
+        self.current_view = LetterQuizGame(self.config, self.root, self._show_menu, self._vlc_instance)
 
     def run(self) -> None:
         """Run the application."""
