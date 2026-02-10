@@ -14,25 +14,15 @@ icon_size: 80
 # Images are matched by their first letter, e.g., Lion.png -> L, Apple.jpg -> A
 images_folder: "path/to/your/images"
 
-# Number of pictures to show per round (including the correct one)
-# Supports 2-8 pictures per round
-pictures_per_round: 4
-
-# Restrict the game to specific letters (optional)
-# Leave empty to auto-detect from available images in the folder
-# Example: [A, D, L, M, P] to only practice these letters
-allowed_letters: []
-
-# Window settings
-window:
-  width: 1024
-  height: 768
-  title: "My Alphabet Game"
-  fullscreen: false
-
 # Game settings
 game:
-  # Maximum number of rounds per game session (0 = unlimited)
+  # Number of pictures/choices to show per round (including the correct one, 2-8)
+  pictures_per_round: 4
+  # Restrict the game to specific letters (optional)
+  # Leave empty to auto-detect from available images in the folder
+  # Example: [A, D, L, M, P] to only practice these letters
+  allowed_letters: []
+  # Maximum number of rounds per game session (0 = unlimited, max 10)
   max_rounds: 10
   # Delay to show letter before images appear (in milliseconds, 0 = no delay)
   letter_display_delay_ms: 1500
@@ -48,7 +38,7 @@ game:
   show_lowercase: false
   # Show image file names below pictures (first letter bold, e.g., "Apple")
   show_image_names: false
-  # Show letter hint (currently unused)
+  # Show letter hint (e.g., "L is for...")
   show_letter_hint: true
 
 # Button colors (hex colors)
@@ -67,9 +57,19 @@ buttons:
 # Sound settings
 sound:
   enabled: true
-  # Path to folder containing letter sounds (e.g., a.wav, b.wav, l.wav)
+  # Path to folder containing letter sounds (e.g., A.wav, B.wav, L.wav)
   sounds_folder: "path/to/sounds"
   # Sound to play on correct answer (optional)
   correct_sound: ""
   # Sound to play on wrong answer (optional)
   wrong_sound: ""
+
+# Video reward settings
+# A random video plays alongside the final gallery when the player does well
+video_reward:
+  # Minimum number of rounds to be eligible for video reward (0 = disabled)
+  min_rounds_video: 3
+  # Maximum number of wrong answers allowed to get video reward (0 = perfect score only)
+  max_wrong_answers: 1
+  # Path to folder containing reward videos (.mp4, .avi, .mkv, etc.)
+  videos_folder: ""

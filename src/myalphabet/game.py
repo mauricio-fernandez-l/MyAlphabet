@@ -120,7 +120,10 @@ class AlphabetGame:
     """Main game class managing the alphabet learning game."""
 
     def __init__(
-        self, config: Config, root: tk.Tk, on_menu_callback: Callable[[], None],
+        self,
+        config: Config,
+        root: tk.Tk,
+        on_menu_callback: Callable[[], None],
         vlc_instance=None,
     ):
         self.config = config
@@ -788,7 +791,7 @@ class AlphabetGame:
 
         # Load and play media with looping
         media = self._vlc_instance.media_new(str(video_path))
-        media.add_option('input-repeat=-1')
+        media.add_option("input-repeat=-1")
         self._vlc_player.set_media(media)
         self._vlc_player.play()
 
@@ -859,7 +862,10 @@ class LetterQuizGame:
     """Letter Quiz game - guess the first letter of displayed images."""
 
     def __init__(
-        self, config: Config, root: tk.Tk, on_menu_callback: Callable[[], None],
+        self,
+        config: Config,
+        root: tk.Tk,
+        on_menu_callback: Callable[[], None],
         vlc_instance=None,
     ):
         self.config = config
@@ -1402,7 +1408,7 @@ class LetterQuizGame:
 
         # Load and play media with looping
         media = self._vlc_instance.media_new(str(video_path))
-        media.add_option('input-repeat=-1')
+        media.add_option("input-repeat=-1")
         self._vlc_player.set_media(media)
         self._vlc_player.play()
 
@@ -2134,7 +2140,7 @@ class GameApp:
         # Pre-initialize VLC instance for fast video playback later
         if HAS_VLC:
             try:
-                self._vlc_instance = vlc.Instance('--quiet')
+                self._vlc_instance = vlc.Instance("--quiet")
             except Exception:
                 self._vlc_instance = None
 
@@ -2178,7 +2184,7 @@ class GameApp:
         """Start the game with given settings."""
         # Update config with user settings
         self.config._data["images_folder"] = str(settings["images_folder"])
-        self.config._data["pictures_per_round"] = settings["pictures_per_round"]
+        self.config._data["game"]["pictures_per_round"] = settings["pictures_per_round"]
         self.config._data["game"]["max_rounds"] = settings["max_rounds"]
         # Update config_dir for proper path resolution
         self.config._config_dir = (
@@ -2188,7 +2194,9 @@ class GameApp:
         )
 
         # Create game view
-        self.current_view = AlphabetGame(self.config, self.root, self._show_menu, self._vlc_instance)
+        self.current_view = AlphabetGame(
+            self.config, self.root, self._show_menu, self._vlc_instance
+        )
 
     def _start_letters(self, settings: dict) -> None:
         """Start the letters browsing mode."""
@@ -2211,7 +2219,7 @@ class GameApp:
         # Update config with user settings
         self.config._data["images_folder"] = str(settings["images_folder"])
         self.config._data["game"]["max_rounds"] = settings["max_rounds"]
-        self.config._data["pictures_per_round"] = settings["num_choices"]
+        self.config._data["game"]["pictures_per_round"] = settings["num_choices"]
         # Update config_dir for proper path resolution
         self.config._config_dir = (
             settings["images_folder"].parent
@@ -2220,7 +2228,9 @@ class GameApp:
         )
 
         # Create quiz view
-        self.current_view = LetterQuizGame(self.config, self.root, self._show_menu, self._vlc_instance)
+        self.current_view = LetterQuizGame(
+            self.config, self.root, self._show_menu, self._vlc_instance
+        )
 
     def run(self) -> None:
         """Run the application."""

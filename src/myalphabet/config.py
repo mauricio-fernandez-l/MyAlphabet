@@ -9,8 +9,6 @@ import yaml
 
 DEFAULT_CONFIG = {
     "images_folder": "",
-    "pictures_per_round": 4,
-    "allowed_letters": [],
     "window": {
         "width": 1024,
         "height": 768,
@@ -18,6 +16,8 @@ DEFAULT_CONFIG = {
         "fullscreen": True,
     },
     "game": {
+        "pictures_per_round": 4,
+        "allowed_letters": [],
         "max_rounds": 7,
         "letter_display_delay_ms": 1500,
         "highlight_duration_ms": 1500,
@@ -148,7 +148,7 @@ def validate_config(
             errors.append(f"images_folder is not a directory: {folder_path}")
 
     # Check pictures_per_round
-    pictures_per_round = config.get("pictures_per_round", 4)
+    pictures_per_round = config.get("game", {}).get("pictures_per_round", 4)
     if not isinstance(pictures_per_round, int) or pictures_per_round < 2:
         errors.append("pictures_per_round must be an integer >= 2")
 
@@ -192,12 +192,12 @@ class Config:
 
     @property
     def pictures_per_round(self) -> int:
-        return self._data["pictures_per_round"]
+        return self._data["game"]["pictures_per_round"]
 
     @property
     def allowed_letters(self) -> list[str]:
         """Return list of allowed letters (uppercase), or empty list for all."""
-        letters = self._data.get("allowed_letters", [])
+        letters = self._data.get("game", {}).get("allowed_letters", [])
         if letters:
             return [l.upper() for l in letters]
         return []
