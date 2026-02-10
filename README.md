@@ -4,20 +4,24 @@ An alphabet learning game for young children (ages 3-5).
 
 ## Overview
 
-MyAlphabet helps children learn the alphabet by showing them pictures and asking them to identify which picture matches a given letter. The game displays a letter (e.g., "A a") along with several pictures, and the child must click/touch the picture that starts with that letter.
+MyAlphabet helps children learn the alphabet through three game modes — picture matching, letter quizzes, and a letter gallery. The game runs fullscreen with a touch-friendly emoji UI designed for small hands.
 
 ## Features
 
-- 🎯 Simple, child-friendly touch interface with large buttons
+- 🎯 Touch-friendly fullscreen interface with large emoji buttons
 - 🖼️ Uses your own pictures for a personalized experience
-- 🔤 Shows both uppercase and lowercase letters (e.g., "A a")
+- 🔤 Three game modes:
+  - **Alphabet Game** — a letter is shown, child picks the matching picture
+  - **Letter Quiz** — a letter sound plays, child picks the correct letter
+  - **Letters View** — browse all letters and their images as a gallery
 - 🔊 Letter sounds when the letter appears (click letter to replay)
 - ✅ Green highlight for correct answers with optional sound
 - ❌ Red highlight for incorrect (correct answer shown in blue)
 - 📊 Progress tracking with visual boxes
 - 🖼️ End-of-game gallery showing all rounds
-- ⚙️ Settings menu before each game
-- 🎨 Customizable colors and sounds via config file
+- 🎬 Video reward — plays a random video alongside the gallery when the child does well
+- ⚙️ Settings menu before each game (pictures per round, number of rounds)
+- 🎨 Customizable colors, sounds, and button styles via config file
 - 🖼️ Custom icon support for window and menu
 
 ## Installation
@@ -42,17 +46,20 @@ pip install -e .
 - Python 3.9+
 - Pillow (for image handling)
 - PyYAML (for configuration)
+- python-vlc (for video reward playback)
 - Tkinter (usually included with Python)
 - pywin32 (for desktop shortcut creation, Windows only)
+
+> **Note:** The video reward feature requires [VLC media player](https://www.videolan.org/) to be installed on your system.
 
 ## Setting Up Images
 
 1. Create a folder for your alphabet images
 2. Add pictures named starting with the letter they represent:
-   - `Apple.png` - Picture for letter A
-   - `Airplane.jpg` - Another picture for letter A  
-   - `Ball.png` - Picture for letter B
-   - `Lion.jpeg` - Picture for letter L
+   - `Apple.png` — picture for letter A
+   - `Airplane.jpg` — another picture for letter A
+   - `Ball.png` — picture for letter B
+   - `Lion.jpeg` — picture for letter L
    - etc.
 
 The game matches images by their **first letter** (case-insensitive).
@@ -71,14 +78,30 @@ Supported image formats: PNG, JPG, JPEG, GIF, BMP, WEBP
 ## Setting Up Sounds (Optional)
 
 1. Create a folder for letter sounds
-2. Add .wav files named with the letter:
-   - `a.wav` - Sound for letter A
-   - `b.wav` - Sound for letter B
+2. Add `.wav` files named with the letter:
+   - `a.wav` — sound for letter A
+   - `b.wav` — sound for letter B
    - etc.
-
 3. Optionally add reaction sounds:
    - A sound for correct answers
    - A sound for wrong answers
+
+## Setting Up Video Rewards (Optional)
+
+The game can play a short reward video alongside the end-of-game gallery when the child performs well.
+
+1. Create a folder for reward videos
+2. Add video files (`.mp4`, `.avi`, `.mkv`, etc.)
+3. Configure thresholds in `config.yaml`:
+
+```yaml
+video_reward:
+  min_rounds_video: 3       # Minimum rounds played to be eligible
+  max_wrong_answers: 1      # Max wrong answers allowed (0 = perfect score only)
+  videos_folder: "path/to/videos"
+```
+
+A random video from the folder is chosen each time the child earns a reward.
 
 ## Configuration
 
@@ -95,20 +118,25 @@ icon_size: 80
 # Path to your images folder (REQUIRED)
 images_folder: "path/to/images"
 
-# Number of pictures shown per round (2-8)
-pictures_per_round: 4
-
-# Limit to specific letters (optional)
-allowed_letters: []  # Empty = all available letters
-
 # Game settings
 game:
-  max_rounds: 10              # 0 = unlimited
-  letter_display_delay_ms: 1500  # Show letter before images
-  letter_font_size: 72        # Size of letter display
-  show_lowercase: false       # Show "A a" instead of just "A"
-  show_image_names: true     # Show names below pictures (first letter bold)
+  pictures_per_round: 4        # Number of choices per round (2-8)
+  allowed_letters: []           # Empty = all available letters
+  max_rounds: 10                # 0 = unlimited, max 10
+  letter_display_delay_ms: 1500 # Show letter before images
+  letter_font_size: 72          # Size of letter display
+  show_lowercase: false         # Show "A a" instead of just "A"
+  show_image_names: true        # Show names below pictures
+  show_letter_hint: true        # Show "L is for..." hint
   background_color: "#f0f8ff"
+
+# Button colors
+buttons:
+  play_again_color: "#2196F3"
+  menu_color: "#4CAF50"
+  quit_color: "#FF9800"
+  letters_color: "#9C27B0"
+  quiz_color: "#00BCD4"
 
 # Sound settings
 sound:
@@ -116,6 +144,12 @@ sound:
   sounds_folder: "path/to/sounds"
   correct_sound: "path/to/correct.wav"
   wrong_sound: "path/to/wrong.wav"
+
+# Video reward
+video_reward:
+  min_rounds_video: 3
+  max_wrong_answers: 1
+  videos_folder: "path/to/videos"
 ```
 
 The config file is searched in these locations (in order):
@@ -151,17 +185,31 @@ This creates a desktop shortcut using your configured `game_name` and `icon_imag
 
 ## How to Play
 
-1. **Start the game** - A menu appears with settings
-2. **Adjust settings** if needed (pictures per round, number of rounds)
-3. **Click Start Game**
-4. **Look at the letter** displayed (shows uppercase and lowercase, e.g., "A a")
-5. **Click the letter** to hear it again
-6. **Find and click** the picture that starts with that letter
-   - ✅ **Green border** = Correct!
-   - ❌ **Red border** = Wrong (correct answer shown in blue)
-7. **Game auto-advances** to the next round
-8. **View the gallery** at the end showing all your answers
-9. **Play Again** or return to **Menu**
+### Alphabet Game
+
+1. A **letter** is displayed (e.g., "A a")
+2. Several pictures appear — tap the one that starts with that letter
+3. ✅ Green border = correct, ❌ red border = wrong (correct answer shown in blue)
+4. After all rounds, a **gallery** shows your results (and a reward video if earned!)
+
+### Letter Quiz
+
+1. A **letter sound** plays automatically
+2. Several letters appear — tap the one you heard
+3. Tap the speaker icon to hear the sound again
+4. Scoring and gallery work the same as the Alphabet Game
+
+### Letters View
+
+1. Browse all available letters in a grid
+2. Tap a letter to see all its images
+3. Tap an image to hear the letter sound
+
+### Menu
+
+- Choose your game mode from the main menu
+- Adjust **pictures per round** and **number of rounds** before starting
+- Return to the menu anytime via the 🏠 button
 
 ## Project Structure
 
@@ -175,13 +223,14 @@ MyAlphabet/
 ├── data/                   # Your data files
 │   ├── images/             # Letter images
 │   ├── sounds/             # Letter sounds (.wav)
+│   ├── videos/             # Reward videos
 │   └── icon/               # Game icon
 └── src/
     └── myalphabet/
         ├── __init__.py     # Package initialization
         ├── __main__.py     # Entry point
         ├── config.py       # Configuration management
-        ├── game.py         # Main game GUI
+        ├── game.py         # Game modes and UI
         └── images.py       # Image loading utilities
 ```
 

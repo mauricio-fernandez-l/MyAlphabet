@@ -57,7 +57,7 @@ buttons:
 # Sound settings
 sound:
   enabled: true
-  # Path to folder containing letter sounds (e.g., A.wav, B.wav, L.wav)
+  # Path to folder containing letter sounds (e.g., a.wav, b.wav, l.wav)
   sounds_folder: "path/to/sounds"
   # Sound to play on correct answer (optional)
   correct_sound: ""
