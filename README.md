@@ -21,6 +21,7 @@ MyAlphabet helps children learn the alphabet through three game modes — pictur
 - 🖼️ End-of-game gallery showing all rounds
 - 🎬 Video reward — plays a random video alongside the gallery when the child does well
 - ⚙️ Settings menu before each game (pictures per round, number of rounds)
+- 🛠️ Persistent config editor from the start menu with save support and path browse buttons
 - 🎨 Customizable colors, sounds, and button styles via config file
 - 🖼️ Custom icon support for window and menu
 
@@ -95,10 +96,12 @@ The game can play a short reward video alongside the end-of-game gallery when th
 3. Configure thresholds in `config.yaml`:
 
 ```yaml
-video_reward:
-  min_rounds_video: 3       # Minimum rounds played to be eligible
-  max_wrong_answers: 1      # Max wrong answers allowed (0 = perfect score only)
-  videos_folder: "path/to/videos"
+resources:
+  rewards:
+    video:
+      min_rounds: 3           # Minimum rounds played to be eligible
+      max_wrong_answers: 1    # Max wrong answers allowed (0 = perfect score only)
+      folder: "path/to/videos"
 ```
 
 A random video from the folder is chosen each time the child earns a reward.
@@ -108,48 +111,53 @@ A random video from the folder is chosen each time the child earns a reward.
 Copy `config.example.yaml` to `config.yaml` and edit:
 
 ```yaml
-# Custom game name
-game_name: "My Super Alphabet"
+# App identity and icon
+app:
+  name: "My Super Alphabet"
+  icon:
+    path: "path/to/icon.png"
+    size: 80
 
-# Icon for window and menu
-icon_image: "path/to/icon.png"
-icon_size: 80
+# Required asset folder
+resources:
+  images:
+    folder: "path/to/images"
+  sound:
+    enabled: true
+    letters_folder: "path/to/sounds"
+    feedback:
+      correct: "path/to/correct.wav"
+      wrong: "path/to/wrong.wav"
+  rewards:
+    video:
+      min_rounds: 3
+      max_wrong_answers: 1
+      folder: "path/to/videos"
 
-# Path to your images folder (REQUIRED)
-images_folder: "path/to/images"
-
-# Game settings
+# Gameplay settings
 game:
-  pictures_per_round: 4        # Number of choices per round (2-8)
-  allowed_letters: []           # Empty = all available letters
-  max_rounds: 10                # 0 = unlimited, max 10
-  letter_display_delay_ms: 1500 # Show letter before images
-  letter_font_size: 72          # Size of letter display
-  show_lowercase: false         # Show "A a" instead of just "A"
-  show_image_names: true        # Show names below pictures
-  show_letter_hint: true        # Show "L is for..." hint
-  background_color: "#f0f8ff"
+  player_adjustable:
+    pictures_per_round: 4       # Menu setting: number of choices (2-8)
+    max_rounds: 10              # Menu setting: 0 = unlimited, max 10
+  presentation:
+    letter_font_size: 72        # Size of the large letter display
+    show_lowercase: false       # Show "A a" instead of just "A"
+    show_image_names: true      # Show names below pictures
+    show_letter_hint: true      # Show "L is for..." hint
+  timing:
+    letter_display_delay_ms: 1500
+    next_round_delay_ms: 1500
 
-# Button colors
-buttons:
-  play_again_color: "#2196F3"
-  menu_color: "#4CAF50"
-  quit_color: "#FF9800"
-  letters_color: "#9C27B0"
-  quiz_color: "#00BCD4"
-
-# Sound settings
-sound:
-  enabled: true
-  sounds_folder: "path/to/sounds"
-  correct_sound: "path/to/correct.wav"
-  wrong_sound: "path/to/wrong.wav"
-
-# Video reward
-video_reward:
-  min_rounds_video: 3
-  max_wrong_answers: 1
-  videos_folder: "path/to/videos"
+# Visual styling
+ui:
+  colors:
+    background: "#f0f8ff"
+    buttons:
+      play_again: "#2196F3"
+      menu: "#4CAF50"
+      quit: "#FF9800"
+      letters: "#9C27B0"
+      quiz: "#00BCD4"
 ```
 
 The config file is searched in these locations (in order):
@@ -181,7 +189,7 @@ myalph --version
 python create_shortcut.py
 ```
 
-This creates a desktop shortcut using your configured `game_name` and `icon_image`.
+This creates a desktop shortcut using your configured `app.name` and `app.icon.path`.
 
 ## How to Play
 
@@ -209,6 +217,7 @@ This creates a desktop shortcut using your configured `game_name` and `icon_imag
 
 - Choose your game mode from the main menu
 - Adjust **pictures per round** and **number of rounds** before starting
+- Open the **⚙️** button to edit and save the persistent `config.yaml`
 - Return to the menu anytime via the 🏠 button
 
 ## Project Structure
@@ -254,7 +263,7 @@ MIT License - Feel free to use and modify for your own children's education!
 ## Troubleshooting
 
 ### "No images found" error
-- Check that `images_folder` in config.yaml points to the correct directory
+- Check that `resources.images.folder` in config.yaml points to the correct directory
 - Verify image files start with a letter (e.g., `Apple.png`, `Ball.jpg`)
 - Ensure images have supported extensions (.png, .jpg, .jpeg, etc.)
 
@@ -262,12 +271,8 @@ MIT License - Feel free to use and modify for your own children's education!
 - Use higher resolution source images (at least 300x300 pixels)
 - The game automatically scales images to fit the buttons
 
-### Window too small/large
-- Adjust `window.width` and `window.height` in config.yaml
-- Set `window.fullscreen: true` for fullscreen mode (press Escape to exit)
-
 ### No sound
-- Check that `sound.enabled` is `true` in config.yaml
+- Check that `resources.sound.enabled` is `true` in config.yaml
 - Verify sound files are .wav format
-- Check that `sounds_folder` path is correct
+- Check that `resources.sound.letters_folder` path is correct
 - Letter sound files should be named `a.wav`, `b.wav`, etc. (lowercase)

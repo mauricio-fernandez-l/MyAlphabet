@@ -4,8 +4,6 @@ import os
 import sys
 from pathlib import Path
 
-import yaml
-
 import win32com.client
 from PIL import Image
 
@@ -38,28 +36,28 @@ def create_shortcut():
     # Get project root directory
     project_root = Path(__file__).parent.resolve()
 
+    src_dir = project_root / "src"
+    if str(src_dir) not in sys.path:
+        sys.path.insert(0, str(src_dir))
+
+    from myalphabet.config import Config
+
     # Load config
     config_path = project_root / "config.yaml"
     if not config_path.exists():
         print(f"Error: config.yaml not found at {config_path}")
         sys.exit(1)
 
-    with open(config_path, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
+    config = Config(config_path)
 
     # Get icon image path
-    icon_image = config.get("icon_image", "")
-    if not icon_image:
+    icon_path = config.icon_image
+    if not icon_path:
         print(
-            "Warning: icon_image not set in config.yaml, shortcut will have no custom icon"
+            "Warning: app.icon.path is not set in config.yaml, shortcut will have no custom icon"
         )
         ico_path = None
     else:
-        icon_path = Path(icon_image)
-        if not icon_path.is_absolute():
-            icon_path = project_root / icon_path
-        icon_path = icon_path.resolve()
-
         if not icon_path.exists():
             print(f"Warning: Icon image not found at {icon_path}")
             ico_path = None
@@ -88,7 +86,7 @@ def create_shortcut():
         sys.exit(1)
 
     # Get game name from config
-    game_name = config.get("game_name", "MyAlphabet")
+    game_name = config.game_name
 
     # Create shortcut
     shortcut_path = desktop / f"{game_name}.lnk"

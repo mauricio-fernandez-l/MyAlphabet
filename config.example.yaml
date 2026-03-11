@@ -1,75 +1,72 @@
 # Configuration file for MyAlphabet game
 # Copy this file to config.yaml and adjust the settings
 
-# Custom game name (shown in window title and menu)
-game_name: "My Alphabet Game"
+# App identity and icon
+# Used by the game window/menu and by create_shortcut.py
+app:
+  name: "My Alphabet Game"
+  icon:
+    # Optional: icon shown in the window, menu, and shortcut
+    # Can be absolute or relative to this config file
+    path: ""
+    size: 80
 
-# Icon image for window and menu (optional)
-# Can be absolute or relative path
-icon_image: ""
-icon_size: 80
+# External media and asset locations
+resources:
+  images:
+    # Required: folder containing your letter images
+    # Can be absolute or relative to this config file
+    # Images are matched by their first letter, e.g., Lion.png -> L, Apple.jpg -> A
+    folder: "path/to/your/images"
+  sound:
+    # Optional: disable all letter/reaction sounds
+    enabled: true
+    # Optional: folder containing letter sounds such as a.wav, b.wav, l.wav
+    letters_folder: "path/to/sounds"
+    feedback:
+      # Optional: sound played after a correct answer
+      correct: ""
+      # Optional: sound played after a wrong answer
+      wrong: ""
+  rewards:
+    video:
+      # Set min_rounds to 0 to disable video rewards completely
+      min_rounds: 3
+      # 0 means only a perfect result gets a video reward
+      max_wrong_answers: 1
+      # Optional: folder containing reward videos (.mp4, .avi, .mkv, etc.)
+      folder: ""
 
-# Path to the folder containing letter images
-# Can be absolute or relative (relative paths are resolved from config file location)
-# Images are matched by their first letter, e.g., Lion.png -> L, Apple.jpg -> A
-images_folder: "path/to/your/images"
-
-# Game settings
+# Gameplay settings
 game:
-  # Number of pictures/choices to show per round (including the correct one, 2-8)
-  pictures_per_round: 4
-  # Restrict the game to specific letters (optional)
-  # Leave empty to auto-detect from available images in the folder
-  # Example: [A, D, L, M, P] to only practice these letters
-  allowed_letters: []
-  # Maximum number of rounds per game session (0 = unlimited, max 10)
-  max_rounds: 10
-  # Delay to show letter before images appear (in milliseconds, 0 = no delay)
-  letter_display_delay_ms: 1500
-  # Highlight duration in milliseconds after clicking
-  highlight_duration_ms: 1500
-  # Delay before next round in milliseconds (after correct answer)
-  next_round_delay_ms: 1500
-  # Background color (hex or named color)
-  background_color: "#f0f8ff"
-  # Font size for the letter display
-  letter_font_size: 72
-  # Show lowercase letter alongside uppercase (e.g., "A a" instead of "A")
-  show_lowercase: false
-  # Show image file names below pictures (first letter bold, e.g., "Apple")
-  show_image_names: false
-  # Show letter hint (e.g., "L is for...")
-  show_letter_hint: true
+  # These values can be changed by the player in the start menu
+  player_adjustable:
+    # Number of choices shown per round (2-8)
+    pictures_per_round: 4
+    # Number of rounds per session (0 = unlimited, menu currently uses 1-10)
+    max_rounds: 10
+  # How content is shown to the player
+  presentation:
+    letter_font_size: 72
+    show_lowercase: false
+    show_image_names: false
+    show_letter_hint: true
+  # Timing/feel settings
+  timing:
+    # Show the letter first, then wait before images appear (0 = no delay)
+    letter_display_delay_ms: 1500
+    # Wait before moving to the next round
+    next_round_delay_ms: 1500
 
-# Button colors (hex colors)
-buttons:
-  play_again_color: "#2196F3"
-  play_again_hover: "#1976D2"
-  quit_color: "#FF9800"
-  quit_hover: "#F57C00"
-  menu_color: "#4CAF50"
-  menu_hover: "#388E3C"
-  letters_color: "#9C27B0"
-  letters_hover: "#7B1FA2"
-  quiz_color: "#00BCD4"
-  quiz_hover: "#0097A7"
-
-# Sound settings
-sound:
-  enabled: true
-  # Path to folder containing letter sounds (e.g., a.wav, b.wav, l.wav)
-  sounds_folder: "path/to/sounds"
-  # Sound to play on correct answer (optional)
-  correct_sound: ""
-  # Sound to play on wrong answer (optional)
-  wrong_sound: ""
-
-# Video reward settings
-# A random video plays alongside the final gallery when the player does well
-video_reward:
-  # Minimum number of rounds to be eligible for video reward (0 = disabled)
-  min_rounds_video: 3
-  # Maximum number of wrong answers allowed to get video reward (0 = perfect score only)
-  max_wrong_answers: 1
-  # Path to folder containing reward videos (.mp4, .avi, .mkv, etc.)
-  videos_folder: ""
+# Visual styling
+ui:
+  colors:
+    # Background color for menus and game screens
+    background: "#f0f8ff"
+    buttons:
+      # Hover colors are derived automatically from these base colors
+      play_again: "#2196F3"
+      quit: "#FF9800"
+      menu: "#4CAF50"
+      letters: "#9C27B0"
+      quiz: "#00BCD4"

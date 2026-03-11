@@ -7,7 +7,7 @@ import tkinter as tk
 import winsound
 from dataclasses import dataclass
 from pathlib import Path
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 from typing import Callable
 
 from PIL import Image, ImageTk
@@ -20,7 +20,7 @@ try:
 except ImportError:
     HAS_VLC = False
 
-from .config import Config
+from .config import Config, validate_config
 from .images import get_available_letters, get_images_for_letter, select_round_images
 
 
@@ -245,11 +245,6 @@ class AlphabetGame:
         """Load available letters from the images folder."""
         self.available_letters = get_available_letters(self.config.images_folder)
 
-        # Filter by allowed_letters if specified
-        if self.config.allowed_letters:
-            allowed_set = set(self.config.allowed_letters)
-            self.available_letters = self.available_letters & allowed_set
-
         if not self.available_letters:
             messagebox.showerror(
                 "No Images Found",
@@ -310,9 +305,9 @@ class AlphabetGame:
 
         # Fallback to window size minus top bar if frame not yet sized
         if frame_width < 100:
-            frame_width = (self.root.winfo_width() or self.config.window_width) - 40
+            frame_width = (self.root.winfo_width() or 1024) - 40
         if frame_height < 100:
-            frame_height = (self.root.winfo_height() or self.config.window_height) - 200
+            frame_height = (self.root.winfo_height() or 768) - 200
 
         # Calculate button size with padding
         padding = 8
@@ -1742,6 +1737,566 @@ class LettersView:
         self.main_frame.destroy()
 
 
+class SettingsView:
+    """Settings view for editing and saving the persistent config file."""
+
+    def __init__(
+        self,
+        config: Config,
+        root: tk.Tk,
+        on_back_callback: Callable[[], None],
+        on_saved_callback: Callable[[], None],
+    ):
+        self.config = config
+        self.root = root
+        self.on_back_callback = on_back_callback
+        self.on_saved_callback = on_saved_callback
+        self.values = config.to_dict()
+        self.vars: dict[str, tk.Variable] = {}
+        self.toggle_buttons: dict[str, tk.Button] = {}
+
+        bg_color = config.background_color
+
+        self.main_frame = tk.Frame(self.root, bg=bg_color)
+        self.main_frame.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
+
+        top_bar = tk.Frame(self.main_frame, bg=bg_color)
+        top_bar.pack(fill=tk.X, pady=(0, 15))
+
+        tk.Button(
+            top_bar,
+            text="💾 Save",
+            font=("Arial", 16, "bold"),
+            command=self._save,
+            bg=self.config.play_again_color,
+            fg="white",
+            activebackground=self.config.play_again_hover,
+            activeforeground="white",
+            padx=12,
+            pady=6,
+        ).pack(side=tk.LEFT)
+
+        tk.Label(
+            top_bar,
+            text=f"Settings: {self.config.config_path}",
+            font=("Arial", 12),
+            bg=bg_color,
+            fg="#555555",
+        ).pack(side=tk.LEFT, padx=20)
+
+        tk.Button(
+            top_bar,
+            text="🏠 Back",
+            font=("Arial", 14),
+            command=self._go_back,
+            bg=self.config.menu_color,
+            fg="white",
+            activebackground=self.config.menu_hover,
+            activeforeground="white",
+            padx=10,
+            pady=6,
+        ).pack(side=tk.RIGHT)
+
+        canvas_frame = tk.Frame(self.main_frame, bg=bg_color)
+        canvas_frame.pack(expand=True, fill=tk.BOTH)
+
+        self.canvas = tk.Canvas(canvas_frame, bg=bg_color, highlightthickness=0)
+        scrollbar = tk.Scrollbar(
+            canvas_frame,
+            orient=tk.VERTICAL,
+            command=self.canvas.yview,
+        )
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.canvas.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+
+        self.form_frame = tk.Frame(self.canvas, bg=bg_color)
+        self.canvas_window = self.canvas.create_window(
+            (0, 0),
+            window=self.form_frame,
+            anchor="nw",
+        )
+
+        self.form_frame.bind("<Configure>", self._on_form_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        self._bind_scroll_events()
+
+        self._build_form()
+
+    def _bind_scroll_events(self) -> None:
+        """Enable mouse-wheel and touchpad scrolling while settings are open."""
+        self.root.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.root.bind_all("<Button-4>", self._on_mousewheel_linux)
+        self.root.bind_all("<Button-5>", self._on_mousewheel_linux)
+
+    def _unbind_scroll_events(self) -> None:
+        """Remove global scroll bindings when the view is destroyed."""
+        self.root.unbind_all("<MouseWheel>")
+        self.root.unbind_all("<Button-4>")
+        self.root.unbind_all("<Button-5>")
+
+    def _on_form_configure(self, event: tk.Event) -> None:
+        """Keep canvas scroll region in sync with form size."""
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event: tk.Event) -> None:
+        """Stretch the form to the current canvas width."""
+        self.canvas.itemconfigure(self.canvas_window, width=event.width)
+
+    def _on_mousewheel(self, event: tk.Event) -> str:
+        """Scroll the settings form with mouse wheel or touchpad gestures."""
+        if event.delta == 0:
+            return "break"
+
+        steps = -1 if event.delta > 0 else 1
+        self.canvas.yview_scroll(steps, "units")
+        return "break"
+
+    def _on_mousewheel_linux(self, event: tk.Event) -> str:
+        """Scroll fallback for Linux-style mouse wheel events."""
+        steps = -1 if event.num == 4 else 1
+        self.canvas.yview_scroll(steps, "units")
+        return "break"
+
+    def _build_form(self) -> None:
+        """Build the editable settings form."""
+        self._add_section("App")
+        self._add_entry_row(
+            "app.name",
+            "Game Name",
+            self.values["app"]["name"],
+        )
+        self._add_entry_row(
+            "app.icon.path",
+            "Icon Path",
+            self.values["app"]["icon"]["path"],
+            browse_command=lambda: self._browse_file(
+                "app.icon.path",
+                "Select Icon",
+                [
+                    ("Image files", "*.png *.jpg *.jpeg *.bmp *.webp *.ico"),
+                    ("All files", "*.*"),
+                ],
+            ),
+        )
+        self._add_entry_row(
+            "app.icon.size",
+            "Icon Size",
+            str(self.values["app"]["icon"]["size"]),
+            width=10,
+        )
+
+        self._add_section("Resources")
+        self._add_entry_row(
+            "resources.images.folder",
+            "Images Folder",
+            self.values["resources"]["images"]["folder"],
+            browse_command=lambda: self._browse_directory(
+                "resources.images.folder",
+                "Select Images Folder",
+            ),
+        )
+        self._add_checkbox_row(
+            "resources.sound.enabled",
+            "Sound Enabled",
+            self.values["resources"]["sound"]["enabled"],
+        )
+        self._add_entry_row(
+            "resources.sound.letters_folder",
+            "Letter Sounds Folder",
+            self.values["resources"]["sound"]["letters_folder"],
+            browse_command=lambda: self._browse_directory(
+                "resources.sound.letters_folder",
+                "Select Letter Sounds Folder",
+            ),
+        )
+        self._add_entry_row(
+            "resources.sound.feedback.correct",
+            "Correct Sound",
+            self.values["resources"]["sound"]["feedback"]["correct"],
+            browse_command=lambda: self._browse_file(
+                "resources.sound.feedback.correct",
+                "Select Correct Sound",
+                [("Wave files", "*.wav"), ("All files", "*.*")],
+            ),
+        )
+        self._add_entry_row(
+            "resources.sound.feedback.wrong",
+            "Wrong Sound",
+            self.values["resources"]["sound"]["feedback"]["wrong"],
+            browse_command=lambda: self._browse_file(
+                "resources.sound.feedback.wrong",
+                "Select Wrong Sound",
+                [("Wave files", "*.wav"), ("All files", "*.*")],
+            ),
+        )
+        self._add_entry_row(
+            "resources.rewards.video.folder",
+            "Reward Videos Folder",
+            self.values["resources"]["rewards"]["video"]["folder"],
+            browse_command=lambda: self._browse_directory(
+                "resources.rewards.video.folder",
+                "Select Reward Videos Folder",
+            ),
+        )
+        self._add_entry_row(
+            "resources.rewards.video.min_rounds",
+            "Reward Min Rounds",
+            str(self.values["resources"]["rewards"]["video"]["min_rounds"]),
+            width=10,
+        )
+        self._add_entry_row(
+            "resources.rewards.video.max_wrong_answers",
+            "Reward Max Wrong",
+            str(self.values["resources"]["rewards"]["video"]["max_wrong_answers"]),
+            width=10,
+        )
+
+        self._add_section("Game")
+        self._add_entry_row(
+            "game.player_adjustable.pictures_per_round",
+            "Pictures Per Round",
+            str(self.values["game"]["player_adjustable"]["pictures_per_round"]),
+            width=10,
+        )
+        self._add_entry_row(
+            "game.player_adjustable.max_rounds",
+            "Max Rounds",
+            str(self.values["game"]["player_adjustable"]["max_rounds"]),
+            width=10,
+        )
+        self._add_entry_row(
+            "game.presentation.letter_font_size",
+            "Letter Font Size",
+            str(self.values["game"]["presentation"]["letter_font_size"]),
+            width=10,
+        )
+        self._add_checkbox_row(
+            "game.presentation.show_lowercase",
+            "Show Lowercase",
+            self.values["game"]["presentation"]["show_lowercase"],
+        )
+        self._add_checkbox_row(
+            "game.presentation.show_image_names",
+            "Show Image Names",
+            self.values["game"]["presentation"]["show_image_names"],
+        )
+        self._add_checkbox_row(
+            "game.presentation.show_letter_hint",
+            "Show Letter Hint",
+            self.values["game"]["presentation"]["show_letter_hint"],
+        )
+        self._add_entry_row(
+            "game.timing.letter_display_delay_ms",
+            "Letter Delay (ms)",
+            str(self.values["game"]["timing"]["letter_display_delay_ms"]),
+            width=10,
+        )
+        self._add_entry_row(
+            "game.timing.next_round_delay_ms",
+            "Next Round Delay (ms)",
+            str(self.values["game"]["timing"]["next_round_delay_ms"]),
+            width=10,
+        )
+
+        self._add_section("Appearance")
+        self._add_entry_row(
+            "ui.colors.background",
+            "Background Color",
+            self.values["ui"]["colors"]["background"],
+        )
+        self._add_entry_row(
+            "ui.colors.buttons.play_again",
+            "Play Button Color",
+            self.values["ui"]["colors"]["buttons"]["play_again"],
+        )
+        self._add_entry_row(
+            "ui.colors.buttons.quiz",
+            "Quiz Button Color",
+            self.values["ui"]["colors"]["buttons"]["quiz"],
+        )
+        self._add_entry_row(
+            "ui.colors.buttons.letters",
+            "Letters Button Color",
+            self.values["ui"]["colors"]["buttons"]["letters"],
+        )
+        self._add_entry_row(
+            "ui.colors.buttons.menu",
+            "Menu Button Color",
+            self.values["ui"]["colors"]["buttons"]["menu"],
+        )
+        self._add_entry_row(
+            "ui.colors.buttons.quit",
+            "Quit Button Color",
+            self.values["ui"]["colors"]["buttons"]["quit"],
+        )
+
+    def _add_section(self, title: str) -> None:
+        """Add a section heading to the form."""
+        tk.Label(
+            self.form_frame,
+            text=title,
+            font=("Arial", 20, "bold"),
+            bg=self.config.background_color,
+            fg="#333333",
+            anchor="w",
+        ).pack(fill=tk.X, pady=(10, 6))
+
+    def _add_entry_row(
+        self,
+        key: str,
+        label: str,
+        value: str,
+        *,
+        browse_command: Callable[[], None] | None = None,
+        width: int = 40,
+    ) -> None:
+        """Add a labeled entry row to the form."""
+        row = tk.Frame(self.form_frame, bg=self.config.background_color)
+        row.pack(fill=tk.X, pady=4)
+
+        tk.Label(
+            row,
+            text=label,
+            font=("Arial", 14),
+            bg=self.config.background_color,
+            fg="#333333",
+            width=22,
+            anchor="w",
+        ).pack(side=tk.LEFT, padx=(0, 12))
+
+        var = tk.StringVar(value=value)
+        self.vars[key] = var
+
+        tk.Entry(
+            row,
+            textvariable=var,
+            font=("Arial", 14),
+            width=width,
+        ).pack(side=tk.LEFT, expand=True, fill=tk.X)
+
+        if browse_command is not None:
+            tk.Button(
+                row,
+                text="📂",
+                font=("Arial", 16),
+                command=browse_command,
+                padx=8,
+                pady=2,
+            ).pack(side=tk.LEFT, padx=(10, 0))
+
+    def _add_checkbox_row(self, key: str, label: str, value: bool) -> None:
+        """Add a labeled boolean toggle row to the form."""
+        row = tk.Frame(self.form_frame, bg=self.config.background_color)
+        row.pack(fill=tk.X, pady=4)
+
+        var = tk.BooleanVar(value=value)
+        self.vars[key] = var
+
+        tk.Label(
+            row,
+            text=label,
+            font=("Arial", 14),
+            bg=self.config.background_color,
+            fg="#333333",
+            width=22,
+            anchor="w",
+        ).pack(side=tk.LEFT, padx=(0, 12))
+
+        toggle_button = tk.Button(
+            row,
+            font=("Arial", 14, "bold"),
+            width=7,
+            padx=10,
+            pady=8,
+            relief=tk.RAISED,
+            bd=2,
+            command=lambda key=key: self._toggle_boolean(key),
+            cursor="hand2",
+            activeforeground="white",
+        )
+        toggle_button.pack(side=tk.RIGHT)
+        self.toggle_buttons[key] = toggle_button
+        self._refresh_toggle_button(key)
+
+    def _toggle_boolean(self, key: str) -> None:
+        """Toggle a boolean setting from the touch-friendly control."""
+        current_value = bool(self.vars[key].get())
+        self.vars[key].set(not current_value)
+        self._refresh_toggle_button(key)
+
+    def _refresh_toggle_button(self, key: str) -> None:
+        """Update toggle button text and colors from the current value."""
+        button = self.toggle_buttons[key]
+        enabled = bool(self.vars[key].get())
+        if enabled:
+            button.configure(
+                text="ON",
+                bg=self.config.play_again_color,
+                fg="white",
+                activebackground=self.config.play_again_hover,
+            )
+        else:
+            button.configure(
+                text="OFF",
+                bg="#B0BEC5",
+                fg="#1f1f1f",
+                activebackground="#90A4AE",
+            )
+
+    def _browse_directory(self, key: str, title: str) -> None:
+        """Browse for a directory value."""
+        current_value = str(self.vars[key].get()).strip()
+        folder = filedialog.askdirectory(initialdir=current_value or ".", title=title)
+        if folder:
+            self.vars[key].set(folder)
+
+    def _browse_file(
+        self,
+        key: str,
+        title: str,
+        filetypes: list[tuple[str, str]],
+    ) -> None:
+        """Browse for a file value."""
+        current_value = str(self.vars[key].get()).strip()
+        filename = filedialog.askopenfilename(
+            initialdir=str(Path(current_value).parent) if current_value else ".",
+            title=title,
+            filetypes=filetypes,
+        )
+        if filename:
+            self.vars[key].set(filename)
+
+    def _get_str(self, key: str) -> str:
+        """Read a string value from the form."""
+        return str(self.vars[key].get()).strip()
+
+    def _get_int(self, key: str, label: str) -> int:
+        """Read an integer value from the form."""
+        value = self._get_str(key)
+        try:
+            return int(value)
+        except ValueError as exc:
+            raise ValueError(f"{label} must be an integer.") from exc
+
+    def _build_config_data(self) -> dict:
+        """Build a config dictionary from the current form values."""
+        return {
+            "app": {
+                "name": self._get_str("app.name"),
+                "icon": {
+                    "path": self._get_str("app.icon.path"),
+                    "size": self._get_int("app.icon.size", "Icon Size"),
+                },
+            },
+            "resources": {
+                "images": {
+                    "folder": self._get_str("resources.images.folder"),
+                },
+                "sound": {
+                    "enabled": bool(self.vars["resources.sound.enabled"].get()),
+                    "letters_folder": self._get_str("resources.sound.letters_folder"),
+                    "feedback": {
+                        "correct": self._get_str("resources.sound.feedback.correct"),
+                        "wrong": self._get_str("resources.sound.feedback.wrong"),
+                    },
+                },
+                "rewards": {
+                    "video": {
+                        "min_rounds": self._get_int(
+                            "resources.rewards.video.min_rounds",
+                            "Reward Min Rounds",
+                        ),
+                        "max_wrong_answers": self._get_int(
+                            "resources.rewards.video.max_wrong_answers",
+                            "Reward Max Wrong",
+                        ),
+                        "folder": self._get_str("resources.rewards.video.folder"),
+                    },
+                },
+            },
+            "game": {
+                "player_adjustable": {
+                    "pictures_per_round": self._get_int(
+                        "game.player_adjustable.pictures_per_round",
+                        "Pictures Per Round",
+                    ),
+                    "max_rounds": self._get_int(
+                        "game.player_adjustable.max_rounds",
+                        "Max Rounds",
+                    ),
+                },
+                "presentation": {
+                    "letter_font_size": self._get_int(
+                        "game.presentation.letter_font_size",
+                        "Letter Font Size",
+                    ),
+                    "show_lowercase": bool(
+                        self.vars["game.presentation.show_lowercase"].get()
+                    ),
+                    "show_image_names": bool(
+                        self.vars["game.presentation.show_image_names"].get()
+                    ),
+                    "show_letter_hint": bool(
+                        self.vars["game.presentation.show_letter_hint"].get()
+                    ),
+                },
+                "timing": {
+                    "letter_display_delay_ms": self._get_int(
+                        "game.timing.letter_display_delay_ms",
+                        "Letter Delay",
+                    ),
+                    "next_round_delay_ms": self._get_int(
+                        "game.timing.next_round_delay_ms",
+                        "Next Round Delay",
+                    ),
+                },
+            },
+            "ui": {
+                "colors": {
+                    "background": self._get_str("ui.colors.background"),
+                    "buttons": {
+                        "play_again": self._get_str("ui.colors.buttons.play_again"),
+                        "quiz": self._get_str("ui.colors.buttons.quiz"),
+                        "letters": self._get_str("ui.colors.buttons.letters"),
+                        "menu": self._get_str("ui.colors.buttons.menu"),
+                        "quit": self._get_str("ui.colors.buttons.quit"),
+                    },
+                },
+            },
+        }
+
+    def _save(self) -> None:
+        """Validate and save the settings to config.yaml."""
+        try:
+            new_config = self._build_config_data()
+        except ValueError as exc:
+            messagebox.showerror("Invalid Settings", str(exc))
+            return
+
+        errors = validate_config(new_config, self.config.config_path.parent)
+        if errors:
+            messagebox.showerror("Invalid Settings", "\n".join(errors))
+            return
+
+        self.config.replace_data(new_config)
+        saved_path = self.config.save()
+        messagebox.showinfo("Settings Saved", f"Saved to:\n{saved_path}")
+        self.destroy()
+        self.on_saved_callback()
+
+    def _go_back(self) -> None:
+        """Return to the start menu without saving."""
+        self.destroy()
+        self.on_back_callback()
+
+    def destroy(self) -> None:
+        """Clean up the settings view."""
+        self._unbind_scroll_events()
+        self.main_frame.destroy()
+
+
 class MenuView:
     """Menu view for game settings before starting."""
 
@@ -1752,12 +2307,14 @@ class MenuView:
         on_start_callback: Callable[[dict], None],
         on_letters_callback: Callable[[dict], None] | None = None,
         on_quiz_callback: Callable[[dict], None] | None = None,
+        on_settings_callback: Callable[[], None] | None = None,
     ):
         self.config = config
         self.root = root
         self.on_start_callback = on_start_callback
         self.on_letters_callback = on_letters_callback
         self.on_quiz_callback = on_quiz_callback
+        self.on_settings_callback = on_settings_callback
         self.icon_photos = []  # Store icon photos to prevent garbage collection
 
         from . import __version__
@@ -2000,6 +2557,21 @@ class MenuView:
             pady=10,
         ).pack(side=tk.LEFT, padx=10)
 
+        tk.Button(
+            button_frame,
+            text="⚙️",
+            font=("Segoe UI Emoji", 28),
+            command=self._show_settings,
+            bg=config.menu_color,
+            fg="white",
+            activebackground=config.menu_hover,
+            activeforeground="white",
+            width=4,
+            height=2,
+            padx=10,
+            pady=10,
+        ).pack(side=tk.LEFT, padx=10)
+
         # Version label at bottom center
         self.version_label = tk.Label(
             self.root,
@@ -2135,6 +2707,13 @@ class MenuView:
         """Quit without starting."""
         self.root.quit()
 
+    def _show_settings(self) -> None:
+        """Open the persistent settings view."""
+        if not self.on_settings_callback:
+            return
+        self.destroy()
+        self.on_settings_callback()
+
     def destroy(self) -> None:
         """Clean up the menu view."""
         self.version_label.destroy()
@@ -2159,51 +2738,60 @@ class GameApp:
 
         # Create main window
         self.root = tk.Tk()
-        self.root.title(config.game_name)
-        self.root.configure(bg=config.background_color)
+        self._apply_root_config()
+
+        self.root.attributes("-fullscreen", True)
+
+        # Show menu initially
+        self._show_menu()
+
+    def _apply_root_config(self) -> None:
+        """Apply config-driven root window properties."""
+        self.root.title(self.config.game_name)
+        self.root.configure(bg=self.config.background_color)
 
         # Set window icon
-        if config.icon_image and config.icon_image.exists():
+        if self.config.icon_image and self.config.icon_image.exists():
             try:
-                icon_img = Image.open(config.icon_image)
+                icon_img = Image.open(self.config.icon_image)
                 self.icon_photo = ImageTk.PhotoImage(icon_img)
                 self.root.iconphoto(True, self.icon_photo)
             except Exception:
                 pass  # Silently ignore icon errors
 
-        if config.fullscreen:
-            self.root.attributes("-fullscreen", True)
-            self.root.bind(
-                "<Escape>", lambda e: self.root.attributes("-fullscreen", False)
-            )
-        else:
-            # Start maximized
-            self.root.state("zoomed")
-
-        # Show menu initially
-        self._show_menu()
-
     def _show_menu(self) -> None:
         """Show the menu view."""
+        self._apply_root_config()
         self.current_view = MenuView(
             self.config,
             self.root,
             self._start_game,
             self._start_letters,
             self._start_quiz,
+            self._show_settings,
         )
+
+    def _show_settings(self) -> None:
+        """Show the persistent settings editor."""
+        self._apply_root_config()
+        self.current_view = SettingsView(
+            self.config,
+            self.root,
+            self._show_menu,
+            self._on_settings_saved,
+        )
+
+    def _on_settings_saved(self) -> None:
+        """Refresh the app after saving persistent settings."""
+        self._apply_root_config()
+        self._show_menu()
 
     def _start_game(self, settings: dict) -> None:
         """Start the game with given settings."""
-        # Update config with user settings
-        self.config._data["images_folder"] = str(settings["images_folder"])
-        self.config._data["game"]["pictures_per_round"] = settings["pictures_per_round"]
-        self.config._data["game"]["max_rounds"] = settings["max_rounds"]
-        # Update config_dir for proper path resolution
-        self.config._config_dir = (
-            settings["images_folder"].parent
-            if not settings["images_folder"].is_absolute()
-            else None
+        self.config.apply_runtime_settings(
+            images_folder=settings["images_folder"],
+            pictures_per_round=settings["pictures_per_round"],
+            max_rounds=settings["max_rounds"],
         )
 
         # Create game view
@@ -2213,14 +2801,7 @@ class GameApp:
 
     def _start_letters(self, settings: dict) -> None:
         """Start the letters browsing mode."""
-        # Update config with user settings
-        self.config._data["images_folder"] = str(settings["images_folder"])
-        # Update config_dir for proper path resolution
-        self.config._config_dir = (
-            settings["images_folder"].parent
-            if not settings["images_folder"].is_absolute()
-            else None
-        )
+        self.config.apply_runtime_settings(images_folder=settings["images_folder"])
 
         # Create letters view
         self.current_view = LettersView(
@@ -2229,15 +2810,10 @@ class GameApp:
 
     def _start_quiz(self, settings: dict) -> None:
         """Start the letter quiz mode."""
-        # Update config with user settings
-        self.config._data["images_folder"] = str(settings["images_folder"])
-        self.config._data["game"]["max_rounds"] = settings["max_rounds"]
-        self.config._data["game"]["pictures_per_round"] = settings["num_choices"]
-        # Update config_dir for proper path resolution
-        self.config._config_dir = (
-            settings["images_folder"].parent
-            if not settings["images_folder"].is_absolute()
-            else None
+        self.config.apply_runtime_settings(
+            images_folder=settings["images_folder"],
+            pictures_per_round=settings["num_choices"],
+            max_rounds=settings["max_rounds"],
         )
 
         # Create quiz view

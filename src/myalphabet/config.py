@@ -1,6 +1,6 @@
 """Configuration management for MyAlphabet game."""
 
-import os
+import copy
 from pathlib import Path
 from typing import Any
 
@@ -8,50 +8,102 @@ import yaml
 
 
 DEFAULT_CONFIG = {
-    "images_folder": "",
-    "window": {
-        "width": 1024,
-        "height": 768,
-        "title": "My Alphabet Game",
-        "fullscreen": True,
+    "app": {
+        "name": "My Alphabet Game",
+        "icon": {
+            "path": "",
+            "size": 80,
+        },
+    },
+    "resources": {
+        "images": {
+            "folder": "",
+        },
+        "sound": {
+            "enabled": True,
+            "letters_folder": "",
+            "feedback": {
+                "correct": "",
+                "wrong": "",
+            },
+        },
+        "rewards": {
+            "video": {
+                "min_rounds": 0,
+                "max_wrong_answers": 1,
+                "folder": "",
+            },
+        },
     },
     "game": {
-        "pictures_per_round": 4,
-        "allowed_letters": [],
-        "max_rounds": 7,
-        "letter_display_delay_ms": 1500,
-        "highlight_duration_ms": 1500,
-        "next_round_delay_ms": 2000,
-        "background_color": "#f0f8ff",
-        "letter_font_size": 120,
-        "show_lowercase": False,
-        "show_image_names": False,
-        "show_letter_hint": True,
+        "player_adjustable": {
+            "pictures_per_round": 4,
+            "max_rounds": 7,
+        },
+        "presentation": {
+            "letter_font_size": 120,
+            "show_lowercase": False,
+            "show_image_names": False,
+            "show_letter_hint": True,
+        },
+        "timing": {
+            "letter_display_delay_ms": 1500,
+            "next_round_delay_ms": 2000,
+        },
     },
-    "buttons": {
-        "play_again_color": "#2196F3",
-        "play_again_hover": "#1976D2",
-        "quit_color": "#FF9800",
-        "quit_hover": "#F57C00",
-        "menu_color": "#4CAF50",
-        "menu_hover": "#388E3C",
-        "letters_color": "#9C27B0",
-        "letters_hover": "#7B1FA2",
-        "quiz_color": "#00BCD4",
-        "quiz_hover": "#0097A7",
-    },
-    "sound": {
-        "enabled": True,
-        "sounds_folder": "",
-        "correct_sound": "",
-        "wrong_sound": "",
-    },
-    "video_reward": {
-        "min_rounds_video": 0,
-        "max_wrong_answers": 1,
-        "videos_folder": "",
+    "ui": {
+        "colors": {
+            "background": "#f0f8ff",
+            "buttons": {
+                "play_again": "#2196F3",
+                "quit": "#FF9800",
+                "menu": "#4CAF50",
+                "letters": "#9C27B0",
+                "quiz": "#00BCD4",
+            },
+        },
     },
 }
+
+
+def _get_nested(data: dict[str, Any], *keys: str, default: Any = None) -> Any:
+    """Safely read a nested value from a configuration dictionary."""
+    current: Any = data
+    for key in keys:
+        if not isinstance(current, dict) or key not in current:
+            return default
+        current = current[key]
+    return current
+
+
+def _resolve_path(path_str: str, config_dir: Path | None) -> Path | None:
+    """Resolve a possibly relative path using the config file directory."""
+    if not path_str:
+        return None
+    path = Path(path_str)
+    if not path.is_absolute() and config_dir:
+        path = config_dir / path
+    return path.resolve()
+
+
+def _derive_hover_color(color: str) -> str:
+    """Return a slightly darker hex color for hover states."""
+    if not isinstance(color, str) or not color.startswith("#") or len(color) != 7:
+        return color
+
+    try:
+        red = int(color[1:3], 16)
+        green = int(color[3:5], 16)
+        blue = int(color[5:7], 16)
+    except ValueError:
+        return color
+
+    factor = 0.82
+    return "#{:02X}{:02X}{:02X}".format(
+        max(0, min(255, int(red * factor))),
+        max(0, min(255, int(green * factor))),
+        max(0, min(255, int(blue * factor))),
+    )
 
 
 def find_config_file() -> Path | None:
@@ -88,7 +140,7 @@ def load_config(
     Returns:
         Tuple of (configuration dictionary, config file directory or None).
     """
-    config = DEFAULT_CONFIG.copy()
+    config = copy.deepcopy(DEFAULT_CONFIG)
     config_dir = None
 
     if config_path is None:
@@ -106,7 +158,7 @@ def load_config(
     return config, config_dir
 
 
-def _deep_merge(base: dict, override: dict) -> dict:
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """Deep merge two dictionaries."""
     result = base.copy()
     for key, value in override.items():
@@ -133,9 +185,9 @@ def validate_config(
     errors = []
 
     # Check images folder
-    images_folder = config.get("images_folder", "")
+    images_folder = _get_nested(config, "resources", "images", "folder", default="")
     if not images_folder:
-        errors.append("images_folder is not set in config.yaml")
+        errors.append("resources.images.folder is not set in config.yaml")
     else:
         folder_path = Path(images_folder)
         if not folder_path.is_absolute() and config_dir:
@@ -143,12 +195,18 @@ def validate_config(
         folder_path = folder_path.resolve()
 
         if not folder_path.exists():
-            errors.append(f"images_folder does not exist: {folder_path}")
+            errors.append(f"resources.images.folder does not exist: {folder_path}")
         elif not folder_path.is_dir():
-            errors.append(f"images_folder is not a directory: {folder_path}")
+            errors.append(f"resources.images.folder is not a directory: {folder_path}")
 
     # Check pictures_per_round
-    pictures_per_round = config.get("game", {}).get("pictures_per_round", 4)
+    pictures_per_round = _get_nested(
+        config,
+        "game",
+        "player_adjustable",
+        "pictures_per_round",
+        default=4,
+    )
     if not isinstance(pictures_per_round, int) or pictures_per_round < 2:
         errors.append("pictures_per_round must be an integer >= 2")
 
@@ -159,201 +217,275 @@ class Config:
     """Configuration container with easy attribute access."""
 
     def __init__(self, config_path: str | Path | None = None):
-        self._data, self._config_dir = load_config(config_path)
+        resolved_config_path = Path(config_path) if config_path is not None else None
+        if resolved_config_path is None:
+            resolved_config_path = find_config_file()
+
+        self._config_path = (
+            resolved_config_path.resolve()
+            if resolved_config_path is not None
+            else (Path.cwd() / "config.yaml").resolve()
+        )
+        self._data, self._config_dir = load_config(resolved_config_path)
+        if self._config_dir is None:
+            self._config_dir = self._config_path.parent
+
+    @property
+    def config_path(self) -> Path:
+        """Return the resolved path of the active config file."""
+        return self._config_path
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a deep copy of the current configuration data."""
+        return copy.deepcopy(self._data)
+
+    def replace_data(self, data: dict[str, Any]) -> None:
+        """Replace the current configuration data."""
+        self._data = copy.deepcopy(data)
+
+    def save(self) -> Path:
+        """Persist the current configuration to disk."""
+        self._config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self._config_path, "w", encoding="utf-8") as file_handle:
+            yaml.safe_dump(
+                self._data,
+                file_handle,
+                sort_keys=False,
+                allow_unicode=False,
+            )
+        self._config_dir = self._config_path.parent
+        return self._config_path
+
+    def apply_runtime_settings(
+        self,
+        *,
+        images_folder: Path,
+        pictures_per_round: int | None = None,
+        max_rounds: int | None = None,
+    ) -> None:
+        """Apply menu-driven settings without changing config file path resolution."""
+        self._data["resources"]["images"]["folder"] = str(images_folder)
+        if pictures_per_round is not None:
+            self._data["game"]["player_adjustable"][
+                "pictures_per_round"
+            ] = pictures_per_round
+        if max_rounds is not None:
+            self._data["game"]["player_adjustable"]["max_rounds"] = max_rounds
 
     @property
     def game_name(self) -> str:
         """Return custom game name or default."""
-        return self._data.get("game_name", "My Alphabet Game")
+        return _get_nested(self._data, "app", "name", default="My Alphabet Game")
 
     @property
     def icon_image(self) -> Path | None:
         """Return icon image path, resolving relative paths from config location."""
-        icon_str = self._data.get("icon_image", "")
-        if not icon_str:
-            return None
-        icon_path = Path(icon_str)
-        if not icon_path.is_absolute() and self._config_dir:
-            icon_path = self._config_dir / icon_path
-        return icon_path.resolve()
+        icon_str = _get_nested(self._data, "app", "icon", "path", default="")
+        return _resolve_path(icon_str, self._config_dir)
 
     @property
     def icon_size(self) -> int:
         """Return icon size in pixels for menu title."""
-        return self._data.get("icon_size", 80)
+        return _get_nested(self._data, "app", "icon", "size", default=80)
 
     @property
     def images_folder(self) -> Path:
         """Return images folder path, resolving relative paths from config location."""
-        folder = Path(self._data["images_folder"])
-        if not folder.is_absolute() and self._config_dir:
-            folder = self._config_dir / folder
-        return folder.resolve()
+        folder_str = _get_nested(
+            self._data, "resources", "images", "folder", default=""
+        )
+        folder = _resolve_path(folder_str, self._config_dir)
+        if folder is None:
+            return Path()
+        return folder
 
     @property
     def pictures_per_round(self) -> int:
-        return self._data["game"]["pictures_per_round"]
-
-    @property
-    def allowed_letters(self) -> list[str]:
-        """Return list of allowed letters (uppercase), or empty list for all."""
-        letters = self._data.get("game", {}).get("allowed_letters", [])
-        if letters:
-            return [l.upper() for l in letters]
-        return []
-
-    @property
-    def window_width(self) -> int:
-        return self._data["window"]["width"]
-
-    @property
-    def window_height(self) -> int:
-        return self._data["window"]["height"]
-
-    @property
-    def window_title(self) -> str:
-        return self._data["window"]["title"]
-
-    @property
-    def fullscreen(self) -> bool:
-        return self._data["window"]["fullscreen"]
+        return _get_nested(
+            self._data,
+            "game",
+            "player_adjustable",
+            "pictures_per_round",
+            default=4,
+        )
 
     @property
     def max_rounds(self) -> int:
         """Return max rounds (0 = unlimited)."""
-        return self._data["game"].get("max_rounds", 0)
+        return _get_nested(
+            self._data, "game", "player_adjustable", "max_rounds", default=0
+        )
 
     @property
     def letter_display_delay_ms(self) -> int:
         """Return delay before showing images (0 = no delay)."""
-        return self._data["game"].get("letter_display_delay_ms", 0)
-
-    @property
-    def highlight_duration_ms(self) -> int:
-        return self._data["game"]["highlight_duration_ms"]
+        return _get_nested(
+            self._data, "game", "timing", "letter_display_delay_ms", default=0
+        )
 
     @property
     def next_round_delay_ms(self) -> int:
-        return self._data["game"]["next_round_delay_ms"]
+        return _get_nested(
+            self._data, "game", "timing", "next_round_delay_ms", default=2000
+        )
 
     @property
     def background_color(self) -> str:
-        return self._data["game"]["background_color"]
+        return _get_nested(self._data, "ui", "colors", "background", default="#f0f8ff")
 
     @property
     def letter_font_size(self) -> int:
-        return self._data["game"]["letter_font_size"]
+        return _get_nested(
+            self._data, "game", "presentation", "letter_font_size", default=120
+        )
 
     @property
     def show_lowercase(self) -> bool:
-        return self._data["game"]["show_lowercase"]
+        return _get_nested(
+            self._data, "game", "presentation", "show_lowercase", default=False
+        )
 
     @property
     def show_image_names(self) -> bool:
-        return self._data["game"]["show_image_names"]
+        return _get_nested(
+            self._data, "game", "presentation", "show_image_names", default=False
+        )
 
     @property
     def show_letter_hint(self) -> bool:
-        return self._data["game"]["show_letter_hint"]
+        return _get_nested(
+            self._data, "game", "presentation", "show_letter_hint", default=True
+        )
 
     @property
     def play_again_color(self) -> str:
-        return self._data["buttons"]["play_again_color"]
+        return _get_nested(
+            self._data, "ui", "colors", "buttons", "play_again", default="#2196F3"
+        )
 
     @property
     def play_again_hover(self) -> str:
-        return self._data["buttons"]["play_again_hover"]
+        return _derive_hover_color(self.play_again_color)
 
     @property
     def quit_color(self) -> str:
-        return self._data["buttons"]["quit_color"]
+        return _get_nested(
+            self._data, "ui", "colors", "buttons", "quit", default="#FF9800"
+        )
 
     @property
     def quit_hover(self) -> str:
-        return self._data["buttons"]["quit_hover"]
+        return _derive_hover_color(self.quit_color)
 
     @property
     def menu_color(self) -> str:
-        return self._data["buttons"]["menu_color"]
+        return _get_nested(
+            self._data, "ui", "colors", "buttons", "menu", default="#4CAF50"
+        )
 
     @property
     def menu_hover(self) -> str:
-        return self._data["buttons"]["menu_hover"]
+        return _derive_hover_color(self.menu_color)
 
     @property
     def letters_color(self) -> str:
-        return self._data["buttons"]["letters_color"]
+        return _get_nested(
+            self._data, "ui", "colors", "buttons", "letters", default="#9C27B0"
+        )
 
     @property
     def letters_hover(self) -> str:
-        return self._data["buttons"]["letters_hover"]
+        return _derive_hover_color(self.letters_color)
 
     @property
     def quiz_color(self) -> str:
-        return self._data["buttons"]["quiz_color"]
+        return _get_nested(
+            self._data, "ui", "colors", "buttons", "quiz", default="#00BCD4"
+        )
 
     @property
     def quiz_hover(self) -> str:
-        return self._data["buttons"]["quiz_hover"]
+        return _derive_hover_color(self.quiz_color)
 
     @property
     def sound_enabled(self) -> bool:
         """Return whether sound is enabled."""
-        return self._data.get("sound", {}).get("enabled", True)
+        return _get_nested(self._data, "resources", "sound", "enabled", default=True)
 
     @property
     def sounds_folder(self) -> Path | None:
         """Return sounds folder path, resolving relative paths from config location."""
-        folder_str = self._data.get("sound", {}).get("sounds_folder", "")
-        if not folder_str:
-            return None
-        folder = Path(folder_str)
-        if not folder.is_absolute() and self._config_dir:
-            folder = self._config_dir / folder
-        return folder.resolve()
+        folder_str = _get_nested(
+            self._data,
+            "resources",
+            "sound",
+            "letters_folder",
+            default="",
+        )
+        return _resolve_path(folder_str, self._config_dir)
 
     @property
     def correct_sound(self) -> Path | None:
         """Return correct answer sound path, resolving relative paths from config location."""
-        sound_str = self._data.get("sound", {}).get("correct_sound", "")
-        if not sound_str:
-            return None
-        sound_path = Path(sound_str)
-        if not sound_path.is_absolute() and self._config_dir:
-            sound_path = self._config_dir / sound_path
-        return sound_path.resolve()
+        sound_str = _get_nested(
+            self._data,
+            "resources",
+            "sound",
+            "feedback",
+            "correct",
+            default="",
+        )
+        return _resolve_path(sound_str, self._config_dir)
 
     @property
     def wrong_sound(self) -> Path | None:
         """Return wrong answer sound path, resolving relative paths from config location."""
-        sound_str = self._data.get("sound", {}).get("wrong_sound", "")
-        if not sound_str:
-            return None
-        sound_path = Path(sound_str)
-        if not sound_path.is_absolute() and self._config_dir:
-            sound_path = self._config_dir / sound_path
-        return sound_path.resolve()
+        sound_str = _get_nested(
+            self._data,
+            "resources",
+            "sound",
+            "feedback",
+            "wrong",
+            default="",
+        )
+        return _resolve_path(sound_str, self._config_dir)
 
     @property
     def min_rounds_video(self) -> int:
         """Return minimum rounds required to be eligible for video reward (0 = disabled)."""
-        return self._data.get("video_reward", {}).get("min_rounds_video", 0)
+        return _get_nested(
+            self._data,
+            "resources",
+            "rewards",
+            "video",
+            "min_rounds",
+            default=0,
+        )
 
     @property
     def max_wrong_answers(self) -> int:
         """Return maximum wrong answers allowed to get video reward."""
-        return self._data.get("video_reward", {}).get("max_wrong_answers", 1)
+        return _get_nested(
+            self._data,
+            "resources",
+            "rewards",
+            "video",
+            "max_wrong_answers",
+            default=1,
+        )
 
     @property
     def videos_folder(self) -> Path | None:
         """Return videos folder path, resolving relative paths from config location."""
-        folder_str = self._data.get("video_reward", {}).get("videos_folder", "")
-        if not folder_str:
-            return None
-        folder = Path(folder_str)
-        if not folder.is_absolute() and self._config_dir:
-            folder = self._config_dir / folder
-        return folder.resolve()
+        folder_str = _get_nested(
+            self._data,
+            "resources",
+            "rewards",
+            "video",
+            "folder",
+            default="",
+        )
+        return _resolve_path(folder_str, self._config_dir)
 
     def validate(self) -> list[str]:
         return validate_config(self._data, self._config_dir)
